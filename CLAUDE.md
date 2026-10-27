@@ -4,6 +4,22 @@ Projeto: pipeline do time para a Fase 1 do **More than a Hack 2027**. A saída �
 posse de bola por frame (`H`/`A`/`D`/`X`) do jogo Barcelona × Athletic. Regras completas em
 [RULES.md](RULES.md). Fonte oficial em `external/mtah-official/`.
 
+**Documentação de referência — consulte antes de escrever código que toque dados ou métrica:**
+
+| arquivo | quando ler |
+|---|---|
+| [docs/official/DATA.md](docs/official/DATA.md) | formato de cada asset, alinhamento de frames, frames avaliados |
+| [docs/official/CHALLENGE.md](docs/official/CHALLENGE.md) | definição de posse, rótulos, o que conta como troca |
+| [docs/official/EVALUATION.md](docs/official/EVALUATION.md) | spellF1/macroF1, como o `X` é pontuado |
+| [docs/official/SUBMISSION.md](docs/official/SUBMISSION.md) | contrato exato do CSV |
+| [docs/official/RULES.md](docs/official/RULES.md) | o que é permitido e proibido |
+| [docs/official/FAQ.md](docs/official/FAQ.md) | dúvidas comuns |
+| [docs/official/README.md](docs/official/README.md) | índice e commit de origem |
+
+Esses arquivos são cópias: **não edite**. Se divergirem do submódulo, o submódulo vence
+(`uv run python scripts/sync_official_docs.py` sincroniza). A definição exata das métricas está em
+`external/mtah-official/evaluation/possession_metrics.py`.
+
 ---
 
 ## 1. Confidencialidade dos dados: regra nº 1, sem exceções
@@ -21,7 +37,7 @@ nuvem**. Você é um deles. Portanto:
 - **Pode** listar nomes de arquivos (`ls`) para checar se existem, e **pode** rodar scripts cuja
   saída seja só: status (ok/erro), tracebacks, shapes/contagens de linhas, mensagens do validador
   e scores agregados (`spellF1`, `macroF1`, nº e duração média de posses).
-- Escreva código **sem ver os dados**, a partir da documentação oficial (`external/mtah-official/DATA.md`)
+- Escreva código **sem ver os dados**, a partir da documentação oficial ([docs/official/DATA.md](docs/official/DATA.md))
   e dos loaders oficiais (`external/mtah-official/starter/`). Na dúvida sobre formato, pergunte ao humano.
 - Se um traceback ou log incluir valores de dados, não os repita nem os analise além do necessário
   para corrigir o erro.
@@ -55,6 +71,7 @@ src/mtah27/
 scripts/          make_submission.py · validate.py · score.py
 configs/          default.yaml (team_name, parâmetros)
 external/mtah-official/   submódulo oficial: NÃO EDITAR
+docs/official/            cópia dos .md oficiais: NÃO EDITAR (sync_official_docs.py)
 ```
 
 - Indexação: **frame do vídeo tático**, 0…199318. ATD usa `frame_id` 1-based (`frame = frame_id - 1`);
@@ -91,6 +108,7 @@ Antes de dizer que uma tarefa está pronta: testes e lint passando, e, se mexeu 
 - Branches `<iniciais>/<assunto>`; PR para `main`. Não faça push nem commit sem o humano pedir.
 - Não commite nada de `data/` ou `outputs/`, nem notebooks com output.
 - Experimentos relevantes: uma linha em `experiments/log.csv` (ver `experiments/README.md`).
-- Não edite `external/mtah-official/`. Para atualizar: `git submodule update --remote`.
+- Não edite `external/mtah-official/` nem `docs/official/`. Para atualizar: `git submodule update --remote`
+  e depois `uv run python scripts/sync_official_docs.py`.
 - O time usa Windows, macOS e Linux, e o repo pode estar no OneDrive: use `pathlib`, nada de caminhos
   com `\` ou `/` fixos, e escreva arquivos com `newline="\n"`.

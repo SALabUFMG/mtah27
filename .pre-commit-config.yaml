@@ -11,9 +11,9 @@ repos:
         args: ["--maxkb=1000"]  # bloqueia vídeo/tracking/CSV de submissão por engano
       - id: check-merge-conflict
       - id: end-of-file-fixer
-        exclude: ^external/
+        exclude: ^(external|docs/official)/
       - id: trailing-whitespace
-        exclude: ^external/
+        exclude: ^(external|docs/official)/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:

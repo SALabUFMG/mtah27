@@ -6,6 +6,8 @@ Barcelona × Athletic, dizer quem tem a posse (`H` / `A`) ou se a bola está mor
 
 Regras, dados e métrica: repositório oficial, incluído como submódulo em
 [`external/mtah-official`](https://github.com/metrica-sports/more-than-a-hack-2027).
+Cópia da documentação oficial para consulta rápida em **[docs/official/](docs/official/README.md)**;
+resumo em português em [RULES.md](RULES.md).
 
 ---
 
@@ -127,10 +129,11 @@ O script imprime o SHA-256 do CSV; ele deve ser idêntico em qualquer máquina.
 ```
 mtah27/
 ├─ RULES.md              resumo das regras da competição
-├─ CLAUDE.md / AGENTS.md instruções para agentes LLM
+├─ CLAUDE.md             instruções para agentes LLM
 ├─ configs/               parâmetros (YAML) — nada amarrado a frames específicos
 ├─ data/                  dados da competição (gitignored)
 ├─ docs/                  documento técnico da submissão
+│  └─ official/           cópia dos .md do repo oficial (referência, não editar)
 ├─ experiments/log.csv    registro de execuções
 ├─ external/mtah-official repo oficial (submódulo): scorer, validador, loaders
 ├─ notebooks/             exploração (sem outputs no git)
@@ -144,11 +147,13 @@ mtah27/
 
 ```bash
 git submodule update --remote external/mtah-official
-git add external/mtah-official && git commit -m "Atualiza repo oficial"
+uv run python scripts/sync_official_docs.py          # atualiza a cópia em docs/official/
+git add external/mtah-official docs/official && git commit -m "Atualiza repo oficial"
 ```
 
 ## Time
 
 - [RULES.md](RULES.md): resumo das regras, métrica, entregáveis e checklist de submissão.
+- [docs/official/](docs/official/README.md): documentação oficial completa (DATA, EVALUATION, RULES, FAQ…).
 - [CONTRIBUTING.md](CONTRIBUTING.md): fluxo de trabalho e regras de dados.
 - [CLAUDE.md](CLAUDE.md): instruções para agentes LLM (Claude Code, Codex, Copilot…).

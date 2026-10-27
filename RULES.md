@@ -1,8 +1,10 @@
 # Regras da competição — resumo para o time
 
 > Resumo em português do que importa no dia a dia. **A fonte oficial é o repositório da
-> organização** ([`external/mtah-official`](external/mtah-official), principalmente `RULES.md`,
-> `EVALUATION.md`, `SUBMISSION.md` e `DATA.md`) e os termos aceitos na inscrição. Em caso de
+> organização** (submódulo [`external/mtah-official`](external/mtah-official); cópia legível em
+> [docs/official/](docs/official/README.md), principalmente [RULES.md](docs/official/RULES.md),
+> [EVALUATION.md](docs/official/EVALUATION.md), [SUBMISSION.md](docs/official/SUBMISSION.md) e
+> [DATA.md](docs/official/DATA.md)) e os termos aceitos na inscrição. Em caso de
 > divergência, o oficial vence. Dúvida perto de uma linha cinzenta → abrir issue no repo oficial
 > **antes** de construir em cima.
 
