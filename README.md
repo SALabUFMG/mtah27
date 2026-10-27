@@ -9,6 +9,89 @@ Regras, dados e métrica: repositório oficial, incluído como submódulo em
 
 ---
 
+## Instalação local (membros do time)
+
+Passo a passo para deixar o projeto rodando na sua máquina. Leva uns 5 minutos.
+
+### 1. Pré-requisitos
+
+- **Git** — https://git-scm.com/downloads
+- **uv** (gerencia Python e dependências; instala o Python 3.11 sozinho, não precisa ter Python antes):
+
+  ```powershell
+  # Windows (PowerShell)
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
+  ```bash
+  # macOS / Linux
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+  Feche e reabra o terminal depois e confira com `uv --version`.
+- **Acesso ao repo** `SALAb/mtah27` (privado) — peça para alguém do time te adicionar.
+
+### 2. Clonar (com o submódulo oficial)
+
+```bash
+git clone --recurse-submodules https://github.com/SALAb/mtah27.git
+cd mtah27
+```
+
+Já clonou sem `--recurse-submodules` e a pasta `external/mtah-official` está vazia? Rode:
+
+```bash
+git submodule update --init --recursive
+```
+
+### 3. Criar o ambiente
+
+```bash
+uv sync                     # cria .venv com as versões exatas do uv.lock
+uv run pre-commit install   # ganchos de commit: limpa outputs de notebooks, bloqueia arquivos grandes
+```
+
+O `pre-commit install` é **obrigatório para cada membro**: é ele que impede que outputs de
+notebook (que contêm dados) entrem no git.
+
+### 4. Colocar os dados
+
+Descompacte o bundle da competição em `data/` (estrutura em [data/README.md](data/README.md)),
+ou guarde em outro lugar e aponte a variável `MTAH_DATA_DIR` para lá:
+
+```powershell
+$env:MTAH_DATA_DIR = "D:\mtah-data"          # Windows (só na sessão atual)
+setx MTAH_DATA_DIR "D:\mtah-data"            # Windows (permanente; reabra o terminal)
+```
+```bash
+export MTAH_DATA_DIR=/caminho/para/mtah-data # macOS / Linux
+```
+
+**Nunca** commite os dados nem cole trechos deles em LLMs na nuvem — ver [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### 5. Conferir se está tudo certo
+
+```bash
+uv run pytest -q                                                   # testes passam
+uv run python scripts/make_submission.py                           # gera outputs/submissions/mtah27.csv
+uv run python scripts/validate.py outputs/submissions/mtah27.csv   # "Valid."
+uv run python scripts/score.py --no-detail                         # placar nos 5 min públicos
+```
+
+Se os quatro rodarem sem erro, você está pronto. Para abrir notebooks: `uv run jupyter lab`.
+
+### Dicas e problemas comuns
+
+- **VS Code / PyCharm:** selecione o interpretador em `.venv` (Windows: `.venv\Scripts\python.exe`;
+  macOS/Linux: `.venv/bin/python`).
+- **Repo dentro do OneDrive/Dropbox:** a `.venv` tem milhares de arquivos e vai sincronizar.
+  Para criá-la fora, defina `UV_PROJECT_ENVIRONMENT` antes do `uv sync`
+  (ex.: `setx UV_PROJECT_ENVIRONMENT "%USERPROFILE%\venvs\mtah27"`).
+- **`ModuleNotFoundError: games` ou "Submódulo oficial ausente":** falta o passo do submódulo (item 2).
+- **Adicionar uma dependência:** `uv add <pacote>` e commite `pyproject.toml` + `uv.lock` juntos.
+  Depois de um `git pull` que mude o `uv.lock`, rode `uv sync` de novo.
+- **`make`** é opcional; no Windows use os comandos `uv run ...` diretamente.
+
+---
+
 ## Reproduzir a submissão
 
 Requisitos: [uv](https://docs.astral.sh/uv/) e git. O uv instala o Python 3.11 sozinho.
