@@ -1,8 +1,5 @@
 # Instruções para agentes LLM
 
-Este arquivo vale para **qualquer agente** (Claude Code, Codex, Gemini, Copilot…) que trabalhe
-neste repositório. `AGENTS.md` aponta para cá.
-
 Projeto: pipeline do time para a Fase 1 do **More than a Hack 2027**. A saída é uma previsão de
 posse de bola por frame (`H`/`A`/`D`/`X`) do jogo Barcelona × Athletic. Regras completas em
 [RULES.md](RULES.md). Fonte oficial em `external/mtah-official/`.
