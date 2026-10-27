@@ -124,6 +124,8 @@ O script imprime o SHA-256 do CSV; ele deve ser idêntico em qualquer máquina.
 
 ```
 mtah27/
+├─ RULES.md              resumo das regras da competição
+├─ CLAUDE.md / AGENTS.md instruções para agentes LLM
 ├─ configs/               parâmetros (YAML) — nada amarrado a frames específicos
 ├─ data/                  dados da competição (gitignored)
 ├─ docs/                  documento técnico da submissão
@@ -145,4 +147,6 @@ git add external/mtah-official && git commit -m "Atualiza repo oficial"
 
 ## Time
 
-Ver [CONTRIBUTING.md](CONTRIBUTING.md) para o fluxo de trabalho e as regras de dados.
+- [RULES.md](RULES.md): resumo das regras, métrica, entregáveis e checklist de submissão.
+- [CONTRIBUTING.md](CONTRIBUTING.md): fluxo de trabalho e regras de dados.
+- [CLAUDE.md](CLAUDE.md): instruções para agentes LLM (Claude Code, Codex, Copilot…).

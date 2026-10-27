@@ -43,3 +43,6 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .env
+
+# -- agentes LLM: config local de cada pessoa ---------------------------------
+.claude/settings.local.json

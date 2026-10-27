@@ -2,6 +2,8 @@
 
 ## Regras inegociáveis (vêm dos termos da competição)
 
+Resumo completo da competição em [RULES.md](RULES.md). Se for usar agentes LLM (Claude Code, Codex, Copilot…), eles devem seguir [CLAUDE.md](CLAUDE.md).
+
 1. **Dados nunca vão para o git.** Nem vídeo, nem tracking, nem parquet derivado, nem CSV de submissão. O `.gitignore` e o pre-commit protegem, mas a responsabilidade é de cada um.
 2. **Dados nunca vão para LLMs na nuvem** (ChatGPT, Claude, Gemini, Copilot Chat…) — nem extratos, nem prints de tabela/plot do tracking. Pode pedir ajuda com código; cole mensagens de erro e scores, não dados.
 3. **Nenhum label feito à mão** no jogo da competição, nem para treinar/validar. Rótulos manuais em **outros** jogos são permitidos (documentar).
