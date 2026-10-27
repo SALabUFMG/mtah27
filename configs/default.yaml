@@ -1,0 +1,12 @@
+# Configuração padrão do pipeline. Toda execução registrada em experiments/log.csv
+# aponta para o arquivo de config usado.
+#
+# Regra: nenhum parâmetro pode estar amarrado a frames específicos do jogo
+# (ver RULES.md oficial: "rules and constants tied to specific frames").
+
+team_name: mtah27          # nome do time: vira o nome do CSV e do PDF na submissão
+game: BAR-ATH
+source: tactical           # a submissão é indexada pelo vídeo tático
+
+output:
+  dir: outputs/submissions

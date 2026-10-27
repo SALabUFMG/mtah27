@@ -1,0 +1,3 @@
+[submodule "external/mtah-official"]
+	path = external/mtah-official
+	url = https://github.com/metrica-sports/more-than-a-hack-2027

@@ -1,0 +1,5 @@
+# LF em tudo: o time usa Windows, Mac e Linux, e o CSV de submissão tem que sair idêntico.
+* text=auto eol=lf
+*.ipynb text eol=lf
+*.png binary
+*.pdf binary

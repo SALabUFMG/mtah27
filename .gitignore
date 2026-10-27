@@ -1,0 +1,45 @@
+# =============================================================================
+# Este repositório ficará PÚBLICO na submissão. O histórico vai junto.
+# Na dúvida, ignore primeiro e libere depois.
+# =============================================================================
+
+# -- dados da competição (licenciados, NÃO redistribuir) ----------------------
+data/*
+!data/README.md
+*.mp4
+*.mkv
+*.avi
+*_atd.txt
+*_atd.xml
+*_homography.csv
+*_smart_tagging.xml
+
+# -- derivados que reconstroem os dados (proibido publicar) -------------------
+*.parquet
+*.feather
+*.pkl
+*.npy
+*.npz
+*.h5
+
+# -- ground truth privado (nunca deve existir aqui, mas por segurança) --------
+*_possession_gt.csv
+*_possession_gt_meta.json
+
+# -- saídas geradas ------------------------------------------------------------
+outputs/*
+!outputs/.gitkeep
+
+# -- ambiente / editores -------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+.env
