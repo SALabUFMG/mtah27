@@ -1,7 +1,7 @@
-# <Nome do time> — More than a Hack 2027, Fase 1
+# SALab UFMG — More than a Hack 2027, Fase 1
 
 > Documento técnico da submissão (poucas páginas). Estrutura pedida no SUBMISSION.md oficial.
-> Exportar como `<team_name>.pdf` para o formulário.
+> Exportar como `SALab_UFMG.pdf` para o formulário.
 
 ## 1. Abordagem
 O que construímos e por que isso, e não outra coisa.

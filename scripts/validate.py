@@ -1,6 +1,6 @@
 """Roda o validador OFICIAL (mesmas checagens do scorer) num CSV.
 
-uv run python scripts/validate.py outputs/submissions/mtah27.csv
+uv run python scripts/validate.py outputs/submissions/SALab_UFMG.csv
 """
 
 import subprocess

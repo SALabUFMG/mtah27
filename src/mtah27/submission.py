@@ -40,3 +40,8 @@ def write_submission(labels: np.ndarray, out_path: str | Path, game: str = GAME)
         f.write("frame,label\n")
         f.writelines(f"{i},{lab}\n" for i, lab in enumerate(labels))
     return out_path
+
+
+def team_file_stem(team_name: str) -> str:
+    """Nome do time -> nome de arquivo: 'SALab UFMG' -> 'SALab_UFMG'."""
+    return "_".join(team_name.split())

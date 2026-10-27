@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from mtah27.submission import empty_labels, n_frames, write_submission
+from mtah27.submission import empty_labels, n_frames, team_file_stem, write_submission
 
 
 def test_tamanho_oficial():
@@ -29,3 +29,7 @@ def test_rejeita_label_invalido(tmp_path):
 def test_rejeita_tamanho_errado(tmp_path):
     with pytest.raises(ValueError):
         write_submission(np.array(["X"] * 10), tmp_path / "t.csv")
+
+
+def test_nome_do_arquivo():
+    assert team_file_stem("SALab UFMG") == "SALab_UFMG"

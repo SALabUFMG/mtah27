@@ -71,12 +71,13 @@ export MTAH_DATA_DIR=/caminho/para/mtah-data # macOS / Linux
 
 ```bash
 uv run pytest -q                                                   # testes passam
-uv run python scripts/make_submission.py                           # gera outputs/submissions/mtah27.csv
-uv run python scripts/validate.py outputs/submissions/mtah27.csv   # "Valid."
+uv run python scripts/make_submission.py                           # gera outputs/submissions/SALab_UFMG.csv
+uv run python scripts/validate.py outputs/submissions/SALab_UFMG.csv   # "Valid."
 uv run python scripts/score.py --no-detail                         # placar nos 5 min públicos
 ```
 
-Se os quatro rodarem sem erro, você está pronto. Para abrir notebooks: `uv run jupyter lab`.
+Se os quatro rodarem sem erro, você está pronto. Com os dados no lugar, rode também
+`uv run python scripts/run_baseline.py`: os scores públicos devem bater com os publicados (spellF1 0,3256 na `baseline_smooth50`). Para abrir notebooks: `uv run jupyter lab`.
 
 ### Dicas e problemas comuns
 
@@ -112,7 +113,8 @@ O script imprime o SHA-256 do CSV; ele deve ser idêntico em qualquer máquina.
 |---|---|---|
 | preparar ambiente | `git submodule update --init --recursive && uv sync && uv run pre-commit install` | `make setup` |
 | gerar submissão | `uv run python scripts/make_submission.py` | `make submission` |
-| validar (checagem oficial) | `uv run python scripts/validate.py outputs/submissions/mtah27.csv` | `make validate` |
+| validar (checagem oficial) | `uv run python scripts/validate.py outputs/submissions/SALab_UFMG.csv` | `make validate` |
+| baseline oficial (1º contato com os dados) | `uv run python scripts/run_baseline.py` | |
 | pontuar nos 5 min públicos | `uv run python scripts/score.py` | `make score` |
 | testes | `uv run pytest -q` | `make test` |
 | notebooks | `uv run jupyter lab` | |

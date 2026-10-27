@@ -111,7 +111,7 @@ Os organizadores podem rodar o repositório do time vencedor para confirmar o re
 
 ## Checklist de submissão
 
-- [ ] `team_name` correto em `configs/default.yaml` (mesmo nome da inscrição)
+- [ ] `team_name` correto em `configs/default.yaml` (mesmo nome da inscrição: **SALab UFMG**)
 - [ ] `main` limpo; `uv run python scripts/make_submission.py` a partir de clone novo
 - [ ] SHA-256 do CSV igual ao gerado em outra máquina do time
 - [ ] `uv run python scripts/validate.py outputs/submissions/<team_name>.csv` → "Valid."

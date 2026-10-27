@@ -1,7 +1,7 @@
 # Atalhos. No Windows sem `make`, rode os comandos `uv run ...` diretamente (ver README).
 .PHONY: setup submission validate score test lint
 
-TEAM ?= mtah27
+TEAM ?= SALab_UFMG
 
 setup:
 	git submodule update --init --recursive
