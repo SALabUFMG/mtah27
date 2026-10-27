@@ -27,12 +27,12 @@ Passo a passo para deixar o projeto rodando na sua máquina. Leva uns 5 minutos.
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
   Feche e reabra o terminal depois e confira com `uv --version`.
-- **Acesso ao repo** `SALAb/mtah27` (privado) — peça para alguém do time te adicionar.
+- **Acesso ao repo** `SALabUFMG/mtah27` (privado) — peça para alguém do time te adicionar.
 
 ### 2. Clonar (com o submódulo oficial)
 
 ```bash
-git clone --recurse-submodules https://github.com/SALAb/mtah27.git
+git clone --recurse-submodules https://github.com/SALabUFMG/mtah27.git
 cd mtah27
 ```
 
