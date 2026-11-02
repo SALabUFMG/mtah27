@@ -1,0 +1,51 @@
+import importlib
+
+import numpy as np
+
+from mtah27 import c0, paths
+
+assert paths.OFFICIAL.exists()  # importar paths põe o repo oficial no sys.path
+MISSING_P = 0.3
+EMIT = np.array(
+    [
+        [0.35, 0.05, 0.20, 0.05, 0.05, MISSING_P],
+        [0.05, 0.35, 0.05, 0.20, 0.05, MISSING_P],
+        [0.10, 0.10, 0.15, 0.15, 0.20, MISSING_P],
+    ]
+)
+MIN_DUR = {"H": 1.0, "A": 1.0, "D": 2.0}
+
+
+def synth(n=30000, seed=0):
+    rng = np.random.default_rng(seed)
+    labels = []
+    while len(labels) < n:
+        labels += [int(rng.integers(3))] * int(rng.integers(50, 300))
+    labels = np.array(labels[:n], dtype=np.int8)
+    u = rng.random(n)[:, None]
+    obs = (u > np.cumsum(EMIT[labels], axis=1)).sum(axis=1).astype(np.int8)
+    return obs, labels
+
+
+def test_fit_recupera_emissao_e_missing_neutro():
+    obs, labels = synth()
+    p = c0.fit(obs, labels)
+    em = np.array(p["emission"])
+    assert np.abs(em - EMIT).max() < 0.05
+    assert np.allclose(em.sum(axis=1), 1)
+    assert np.ptp(em[:, c0.MISSING]) == 0
+    assert np.allclose(np.array(p["transition"]).sum(axis=1), 1)
+    assert p["n_frames"] == len(labels)
+    assert p == c0.fit(obs, labels)
+
+
+def test_decode_game_blocos_e_macro_f1():
+    obs, labels = synth()
+    p = c0.fit(obs, labels)
+    blocks = [(1000, 14999), (16000, 29000)]
+    pred = c0.decode_game(obs, p, MIN_DUR, 25, blocks)
+    assert (pred[:1000] == 3).all() and (pred[15000:16000] == 3).all() and (pred[29001:] == 3).all()
+    gt = np.full(len(labels), 3, dtype=np.int8)
+    for a, b in blocks:
+        gt[a : b + 1] = labels[a : b + 1]
+    assert importlib.import_module("possession_metrics").evaluate(gt, pred)["macro_f1"] > 0.8

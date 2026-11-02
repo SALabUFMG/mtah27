@@ -32,25 +32,33 @@ def _xy(group: str) -> tuple[float, float]:
     return float(x), float(y)
 
 
-def load_tracking(game: str = GAME) -> Tracking:
-    meta_path, raw_path = require(["atd_meta", "atd_raw"], game)
-    team = team_of_each_track(meta_path)
-    n = source_frames("tactical", game)
-    length, width = GAMES[game]["pitch"]
+def parse_epts(
+    meta_path, raw_path, n_frames: int, pitch: tuple[float, float], first_frame_id: int = 1
+) -> Tracking:
+    """Lê um par EPTS (metadata XML + linhas "frame:slot;slot:bola") em arrays, em metros.
 
-    ball = np.full((n, 2), np.nan, dtype=np.float32)
-    players = np.full((n, len(team), 2), np.nan, dtype=np.float32)
+    O índice do frame é `frame_id - first_frame_id`. Cada grupo pode ter 2 ou mais campos "x,y,...".
+    """
+    team = team_of_each_track(meta_path)
+    length, width = pitch
+    ball = np.full((n_frames, 2), np.nan, dtype=np.float32)
+    players = np.full((n_frames, len(team), 2), np.nan, dtype=np.float32)
     with open(raw_path) as f:
         for line in f:
             parts = line.split(":")
             if len(parts) != 3:
                 continue
-            frame = int(parts[0]) - 1  # frame_id é 1-based
+            frame = int(parts[0]) - first_frame_id
             players[frame] = [_xy(g) for g in parts[1].split(";")]
             ball[frame] = _xy(parts[2])
 
     scale = np.array([length, width], dtype=np.float32)
     return Tracking(ball=ball * scale, players=players * scale, team=team)
+
+
+def load_tracking(game: str = GAME) -> Tracking:
+    meta_path, raw_path = require(["atd_meta", "atd_raw"], game)
+    return parse_epts(meta_path, raw_path, source_frames("tactical", game), GAMES[game]["pitch"])
 
 
 def nearest_team(trk: Tracking) -> np.ndarray:
