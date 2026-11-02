@@ -35,7 +35,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["external"]
+extend-exclude = ["external", "docs/official"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

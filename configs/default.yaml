@@ -10,3 +10,13 @@ source: tactical           # a submissão é indexada pelo vídeo tático
 
 output:
   dir: outputs/submissions
+
+# Caminho C0: HMM H/A/D sobre "time mais próximo da bola". Valores por prior de futebol, NÃO
+# ajustados nos 5 min públicos; serão calibrados na validação externa (Metrica sample).
+c0:
+  min_duration_s: {H: 1.0, A: 1.0, D: 2.0}
+  switch_prob: 0.001          # por frame, saindo do último subestado
+  emission:                   # P(observação | estado); cada linha soma 1
+    H: {near_home: 0.55, near_away: 0.15, missing: 0.30}
+    A: {near_home: 0.15, near_away: 0.55, missing: 0.30}
+    D: {near_home: 0.15, near_away: 0.15, missing: 0.70}
