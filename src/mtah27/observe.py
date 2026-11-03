@@ -43,6 +43,31 @@ def observe(
     return code.astype(np.int8)
 
 
+def player_speed(trk: Tracking, fps: int, window_s: float = 1.0, v_max: float = 12.0) -> np.ndarray:
+    """Mediana da velocidade dos jogadores (m/s) por frame, média móvel centrada de window_s.
+
+    Não depende da bola: em bola morta os jogadores param, mesmo quando o tracking perde a bola.
+    Saltos acima de v_max são troca de identidade do tracklet e ficam de fora. NaN sem jogador.
+    """
+    v = np.linalg.norm(np.diff(trk.players, axis=0), axis=2) * fps
+    v = np.where(v > v_max, np.nan, v)
+    ok_slot = ~np.isnan(v)
+    med = np.full(len(v), np.nan)
+    rows = ok_slot.any(axis=1)
+    med[rows] = np.nanmedian(v[rows], axis=1)
+    med = np.r_[med[:1], med]
+    ok = ~np.isnan(med)
+    k = np.ones(max(1, round(window_s * fps)))
+    den = np.convolve(ok, k, "same")
+    num = np.convolve(np.where(ok, med, 0.0), k, "same")
+    return np.where(den > 0, num / np.maximum(den, 1), np.nan).astype(np.float32)
+
+
+def speed_bin(speed: np.ndarray, bins: list[float]) -> np.ndarray:
+    """Faixa de velocidade (0 = mais lenta) por frame; NaN cai na faixa mais rápida (sem sinal de parada)."""
+    return np.digitize(np.nan_to_num(speed, nan=np.inf), bins).astype(np.int8)
+
+
 def degrade(trk: Tracking, missing_rate: float, mean_gap_s: float, fps: int, seed: int) -> Tracking:
     """Cópia de trk com a bola apagada em buracos contíguos (comprimento geométrico) até a fração
     de frames sem bola (contando os já ausentes) chegar a missing_rate. Determinístico por seed.

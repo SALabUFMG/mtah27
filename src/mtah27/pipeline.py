@@ -3,8 +3,9 @@
 Este é o único contrato que `scripts/make_submission.py` usa. A arquitetura do time entra aqui
 (e em módulos irmãos dentro de src/mtah27/).
 
-Caminho C0: observação por frame (time do jogador mais próximo da bola, ou bola ausente) num HMM
-H/A/D com duração mínima, decodificado por Viterbi em cada tempo. Fora dos tempos, 'X'.
+Caminho C0: observação da bola e velocidade dos jogadores (observe.py) num HMM H/A/D com duração
+mínima, decodificado por Viterbi em cada tempo; parâmetros em configs/c0_fitted.yaml
+(scripts/calibrate_c0.py). Fora dos tempos, 'X'.
 """
 
 # ruff: noqa: I001  (a ordem importa: mtah27.paths precisa vir antes de `games`)
@@ -14,33 +15,26 @@ from typing import Any
 
 import numpy as np
 
+from mtah27 import c0, observe
+from mtah27.config import load_config
 from mtah27.submission import empty_labels
-from mtah27.tracking import AWAY, HOME, load_tracking, nearest_team
-from mtah27.viterbi import STATES, viterbi
+from mtah27.tracking import load_tracking
 from games import GAMES, half_video_blocks  # type: ignore  # noqa: E402
 
-OBS = ("near_home", "near_away", "missing")
-
-
-def observations(nearest: np.ndarray) -> np.ndarray:
-    """Índice em OBS por frame."""
-    return np.where(nearest == HOME, 0, np.where(nearest == AWAY, 1, 2))
-
-
-def decode(obs: np.ndarray, c0: dict[str, Any], fps: int) -> np.ndarray:
-    """Labels H/A/D para uma sequência contínua de observações."""
-    emit = np.log(np.array([[c0["emission"][s][o] for o in OBS] for s in STATES]))
-    min_dur = [max(1, round(c0["min_duration_s"][s] * fps)) for s in STATES]
-    p = c0["switch_prob"]
-    switch = np.log(np.array([[1 - p if i == j else p / 2 for j in range(3)] for i in range(3)]))
-    return STATES[viterbi(emit[:, obs].T, min_dur, switch)]
+CODES = np.array(list("HADX"))
 
 
 def predict(config: dict[str, Any]) -> np.ndarray:
     """Retorna um array de 199.319 labels em {H, A, D, X}, indexado pelo frame do vídeo tático."""
     game = config.get("game", "BAR-ATH")
-    obs = observations(nearest_team(load_tracking(game)))
-    labels = empty_labels(game)
-    for _, first, last in half_video_blocks(game):
-        labels[first : last + 1] = decode(obs[first : last + 1], config["c0"], GAMES[game]["fps"])
-    return labels
+    fitted = load_config(config["c0"]["fitted"])
+    trk = load_tracking(game)
+    fps = GAMES[game]["fps"]
+    obs = observe.observe(trk, fitted["r_close_m"], GAMES[game]["pitch"])
+    speed = observe.player_speed(trk, fps, fitted["speed"]["window_s"])
+    mot = observe.speed_bin(speed, fitted["speed"]["bins_ms"])
+    blocks = [(first, last) for _, first, last in half_video_blocks(game)]
+    codes = c0.decode_game(obs, mot, fitted, fitted["min_dur_s"], fps, blocks)
+    out = empty_labels(game)
+    out[:] = CODES[codes]
+    return out

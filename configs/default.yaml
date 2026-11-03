@@ -11,12 +11,17 @@ source: tactical           # a submissão é indexada pelo vídeo tático
 output:
   dir: outputs/submissions
 
-# Caminho C0: HMM H/A/D sobre "time mais próximo da bola". Valores por prior de futebol, NÃO
-# ajustados nos 5 min públicos; serão calibrados na validação externa (Metrica sample).
+# Caminho C0: HMM H/A/D sobre a observação por frame (ver observe.py). Parâmetros ajustados nos
+# jogos externos da Metrica (leave-one-game-out), NUNCA nos 5 min públicos.
 c0:
-  min_duration_s: {H: 1.0, A: 1.0, D: 2.0}
-  switch_prob: 0.001          # por frame, saindo do último subestado
-  emission:                   # P(observação | estado); cada linha soma 1
-    H: {near_home: 0.55, near_away: 0.15, missing: 0.30}
-    A: {near_home: 0.15, near_away: 0.55, missing: 0.30}
-    D: {near_home: 0.15, near_away: 0.15, missing: 0.70}
+  fitted: c0_fitted.yaml     # gerado por scripts/calibrate_c0.py
+  degrade:                   # simula a bola ausente do alvo nos jogos externos
+    missing_rate: 0.41       # estatística publicada no DATA.md (frames avaliados)
+    mean_gap_s: 2.0          # prior, chute: a forma das lacunas do alvo é desconhecida
+    seed: 0
+  speed:                     # velocidade mediana dos jogadores: sinal de bola morta sem depender da bola
+    window_s: 1.0
+    bins_ms: [1.0, 1.5]      # cortes vistos nos jogos externos (D ~0,9 m/s; vivo ~1,7 m/s de mediana)
+  grid:
+    r_close_m: [1, 2]
+    min_dur_s: [2, 4, 6, 8]  # H e A usam o valor; D usa o dobro

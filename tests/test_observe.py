@@ -1,6 +1,6 @@
 import numpy as np
 
-from mtah27.observe import OBS, degrade, observe
+from mtah27.observe import OBS, degrade, observe, player_speed, speed_bin
 from mtah27.tracking import AWAY, HOME, Tracking
 
 PITCH = (100.0, 60.0)
@@ -47,3 +47,16 @@ def test_degrade_deterministic_rate_and_input():
     assert abs(np.isnan(a.ball).any(axis=1).mean() - 0.3) < 0.02
     assert np.array_equal(trk.ball, ball0)  # entrada intacta
     assert not np.array_equal(a.ball, degrade(trk, 0.3, 2.0, 25, seed=2).ball, equal_nan=True)
+
+
+def test_player_speed_e_faixas():
+    n = 100
+    pl = np.zeros((n, 3, 2), dtype=np.float32)
+    pl[:, :, 0] = np.arange(n)[:, None] * 0.08  # 2 m/s a 25 fps
+    pl[50:, :, 0] = pl[49, 0, 0]  # todos param no frame 50
+    pl[30, 2, 0] = 999  # salto de troca de identidade: ignorado
+    pl[70:, 1] = np.nan  # slot some
+    trk = Tracking(ball=np.zeros((n, 2), np.float32), players=pl, team=np.array([0, 0, 1], np.int8))
+    v = player_speed(trk, fps=25, window_s=0.2)
+    assert np.allclose(v[10:25], 2.0, atol=1e-4) and np.allclose(v[60:], 0.0, atol=1e-4)
+    assert list(speed_bin(np.array([0.5, 1.2, 3.0, np.nan]), [1.0, 1.5])) == [0, 1, 2, 2]
