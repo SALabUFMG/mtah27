@@ -1,4 +1,7 @@
 # Gerado por scripts/calibrate_c0.py. Não edite à mão.
+cv_folds: 3
+cv_macro_f1: 0.7518
+cv_spell_f1: 0.5173
 data_commit: e706dd506b360d69d9d123d5b8026e7294b13996
 emission:
 - - 0.315629
@@ -29,14 +32,14 @@ emission_motion:
 - - 0.55606
   - 0.364179
   - 0.079761
-logo_macro_f1: 0.7518
-logo_spell_f1: 0.5173
 min_dur_s:
   A: 4
   D: 8
   H: 4
 n_frames: 424886
+n_games: 3
 r_close_m: 1
+source: metrica
 speed:
   bins_ms:
   - 1.0

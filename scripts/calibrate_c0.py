@@ -1,25 +1,27 @@
-"""Calibra o C0 nos 3 jogos externos da Metrica (leave-one-game-out) e grava configs/c0_fitted.yaml.
+"""Calibra o C0 em jogos externos (K-fold por jogo) e grava os parâmetros em configs/.
 
-A bola é degradada para imitar a ausência do alvo; a grade (r_close_m x duração mínima) vem de
-configs/default.yaml. Escolhe o melhor spellF1 médio e reajusta nos 3 jogos. Não usa os 5 min públicos.
+Fontes: os 3 jogos da Metrica (K = 3 é o leave-one-game-out) ou os 64 da PFF (Copa 2022). A bola é
+degradada para imitar a ausência do alvo; a grade (r_close_m x duração mínima) vem de
+configs/default.yaml. Escolhe o melhor spellF1 médio por jogo e reajusta em todos. Não usa os 5 min
+públicos. Saída: configs/c0_fitted.yaml (metrica, a usada na submissão) ou c0_fitted_<fonte>.yaml.
 
-Uso: uv run python scripts/calibrate_c0.py
+Uso: uv run python scripts/calibrate_c0.py [--source metrica|pff] [--folds 8]
 """
 
 # ruff: noqa: I001  (a ordem importa: mtah27.paths precisa vir antes de possession_metrics)
 from __future__ import annotations
 
+import argparse
 import time
 
 import numpy as np
 import yaml
 
-from mtah27 import c0, external, observe
+from mtah27 import c0, external, observe, pff
 from mtah27.config import load_config
 from mtah27.paths import CONFIGS_DIR
 import possession_metrics as pm  # type: ignore  # noqa: E402
 
-FPS = 25
 COMMIT = "e706dd506b360d69d9d123d5b8026e7294b13996"  # metrica-sports/sample-data
 
 
@@ -46,63 +48,100 @@ def rnd(x):
     return round(float(x), 6) if isinstance(x, (float, np.floating)) else x
 
 
+def load_games(source):
+    """(tracking, rótulos, fps, campo) de cada jogo da fonte, em ordem fixa."""
+    if source == "metrica":
+        for i in (1, 2, 3):
+            trk, labels = external.load_sample_game(i)
+            yield trk, labels, 25, external.PITCH
+    else:
+        for gid in pff.game_ids():
+            yield pff.load_game(gid)
+
+
+def prepare(source, cfg):
+    """Por jogo, só o que a calibração usa: obs por raio da grade, faixa de velocidade, rótulos, fps.
+
+    O tracking é descartado logo após, para caber os 64 jogos da PFF em memória.
+    """
+    sp_cfg = cfg["speed"]
+    games = []
+    for trk, labels, fps, pitch in load_games(source):
+        trk = observe.degrade(trk, **cfg["degrade"], fps=fps)
+        speed = observe.player_speed(trk, fps, sp_cfg["window_s"])
+        games.append(
+            {
+                "obs": {r: observe.observe(trk, r, pitch) for r in cfg["grid"]["r_close_m"]},
+                "mot": observe.speed_bin(speed, sp_cfg["bins_ms"]),
+                "labels": labels,
+                "fps": fps,
+                "blocks": blocks_of(labels),
+            }
+        )
+    return games
+
+
+def fit_on(games, r, n_mot):
+    return c0.fit(*concat([(g["obs"][r], g["mot"], g["labels"]) for g in games]), n_mot=n_mot)
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source", choices=["metrica", "pff"], default="metrica")
+    ap.add_argument("--folds", type=int, default=8)
+    args = ap.parse_args()
+
     t0 = time.time()
     cfg = load_config()["c0"]
-    games = []
-    for i in (1, 2, 3):
-        trk, labels = external.load_sample_game(i)
-        games.append((observe.degrade(trk, **cfg["degrade"], fps=FPS), labels))
-    blocks = [blocks_of(y) for _, y in games]
-    sp_cfg = cfg["speed"]
-    n_mot = len(sp_cfg["bins_ms"]) + 1
-    mots = [
-        observe.speed_bin(observe.player_speed(t, FPS, sp_cfg["window_s"]), sp_cfg["bins_ms"])
-        for t, _ in games
-    ]
+    games = prepare(args.source, cfg)
+    k = min(args.folds, len(games))
+    fold = [j % k for j in range(len(games))]
+    n_mot = len(cfg["speed"]["bins_ms"]) + 1
+    print(f"{args.source}: {len(games)} jogos, {k} folds, carga {time.time() - t0:.0f}s", flush=True)
 
     results = []
     for r in cfg["grid"]["r_close_m"]:
-        obs = [observe.observe(trk, r, external.PITCH) for trk, _ in games]
-        folds = [
-            c0.fit(*concat([(obs[j], mots[j], games[j][1]) for j in range(3) if j != k]), n_mot=n_mot)
-            for k in range(3)
-        ]
+        params = [fit_on([g for g, f in zip(games, fold, strict=True) if f != i], r, n_mot) for i in range(k)]
         for m in cfg["grid"]["min_dur_s"]:
             md = {"H": m, "A": m, "D": 2 * m}
             sp, mf, npd, ngt = [], [], [], []
-            for k in range(3):
-                pred = c0.decode_game(obs[k], mots[k], folds[k], md, FPS, blocks[k])
-                ev = pm.evaluate(games[k][1], pred, bootstrap_n=1)
+            for g, f in zip(games, fold, strict=True):
+                pred = c0.decode_game(g["obs"][r], g["mot"], params[f], md, g["fps"], g["blocks"])
+                ev = pm.evaluate(g["labels"], pred, bootstrap_n=1)
                 sp.append(ev["spell_f1_mean"])
                 mf.append(ev["macro_f1"])
                 npd.append(ev["n_pred_spells"])
                 ngt.append(ev["n_gt_spells"])
             results.append((r, m, float(np.mean(sp)), float(np.mean(mf)), sp, np.mean(npd), np.mean(ngt)))
+            print(f"r={r:g} m={m:g} spellF1={results[-1][2]:.4f} ({time.time() - t0:.0f}s)", flush=True)
 
-    print("r_close  min_dur  spellF1  macroF1  spellF1 por jogo        n_pred/n_gt")
+    print("r_close  min_dur  spellF1  macroF1  spellF1 por jogo (mín/mediana/máx)  n_pred/n_gt")
     for r, m, s, f, sp, npd, ngt in results:
-        print(f"{r:7g}  {m:7g}  {s:.4f}   {f:.4f}   {' '.join(f'{x:.4f}' for x in sp)}   {npd:.0f}/{ngt:.0f}")
+        dist = f"{min(sp):.4f}/{np.median(sp):.4f}/{max(sp):.4f}"
+        print(f"{r:7g}  {m:7g}  {s:.4f}   {f:.4f}   {dist:34s}  {npd:.0f}/{ngt:.0f}")
     best = max(results, key=lambda t: (t[2], -t[0], -t[1]))  # empate: menor r, depois menor m
     r, m = best[0], best[1]
     print(f"escolhido: r_close_m={r:g} min_dur_s={m:g} spellF1={best[2]:.4f} macroF1={best[3]:.4f}")
 
-    obs = [observe.observe(trk, r, external.PITCH) for trk, _ in games]
-    fitted = c0.fit(*concat([(obs[j], mots[j], games[j][1]) for j in range(3)]), n_mot=n_mot)
+    fitted = fit_on(games, r, n_mot)
     fitted.update(
         r_close_m=r,
         min_dur_s={"H": m, "A": m, "D": 2 * m},
-        speed=sp_cfg,
-        data_commit=COMMIT,
-        logo_spell_f1=round(best[2], 4),
-        logo_macro_f1=round(best[3], 4),
+        speed=cfg["speed"],
+        source=args.source,
+        data_commit=COMMIT if args.source == "metrica" else "pff_wc2022",
+        n_games=len(games),
+        cv_folds=k,
+        cv_spell_f1=round(best[2], 4),
+        cv_macro_f1=round(best[3], 4),
     )
     text = "# Gerado por scripts/calibrate_c0.py. Não edite à mão.\n" + yaml.safe_dump(
         rnd(fitted), sort_keys=True
     )
-    with open(CONFIGS_DIR / "c0_fitted.yaml", "w", encoding="utf-8", newline="\n") as f:
+    name = "c0_fitted.yaml" if args.source == "metrica" else f"c0_fitted_{args.source}.yaml"
+    with open(CONFIGS_DIR / name, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
-    print(f"tempo: {time.time() - t0:.0f}s")
+    print(f"gravado configs/{name}; tempo: {time.time() - t0:.0f}s")
 
 
 if __name__ == "__main__":
