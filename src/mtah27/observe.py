@@ -43,6 +43,30 @@ def observe(
     return code.astype(np.int8)
 
 
+def grid(n: int, fps: float, hz: float) -> np.ndarray:
+    """Frame nativo de cada amostra da grade de hz: amostra k -> round(k / hz * fps), dentro de [0, n).
+
+    Grade comum a todos os providers (25 fps no alvo e na Metrica, 29,97 na PFF): o HMM vê o mesmo
+    passo de tempo em todos, e o tracking da PFF (~15 Hz repetido a 29,97) deixa de ter frames duplicados.
+    """
+    k = np.arange(int(np.floor((n - 1) * hz / fps)) + 1)
+    return np.minimum(np.round(k * fps / hz).astype(np.int64), n - 1)
+
+
+def subsample(trk: Tracking, idx: np.ndarray) -> Tracking:
+    return Tracking(ball=trk.ball[idx], players=trk.players[idx], team=trk.team)
+
+
+def grid_blocks(idx: np.ndarray, blocks: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Blocos nativos [first, last] (inclusivos) em índices da grade; blocos sem amostra somem."""
+    out = []
+    for a, b in blocks:
+        ks = np.flatnonzero((idx >= a) & (idx <= b))
+        if len(ks):
+            out.append((int(ks[0]), int(ks[-1])))
+    return out
+
+
 def player_speed(trk: Tracking, fps: int, window_s: float = 1.0, v_max: float = 12.0) -> np.ndarray:
     """Mediana da velocidade dos jogadores (m/s) por frame, média móvel centrada de window_s.
 
@@ -63,26 +87,52 @@ def player_speed(trk: Tracking, fps: int, window_s: float = 1.0, v_max: float = 
     return np.where(den > 0, num / np.maximum(den, 1), np.nan).astype(np.float32)
 
 
+def normalize_speed(speed: np.ndarray, blocks: list[tuple[int, int]]) -> np.ndarray:
+    """Velocidade dividida pela mediana do próprio bloco [first, last] (inclusivo), um por tempo de jogo.
+
+    A escala absoluta muda com o provider (D ~0,9 m/s na Metrica, ~1,2 na PFF); relativa à mediana do
+    tempo, fica parecida (D ~0,7, vivo ~1,2 nas duas). Fora dos blocos: NaN.
+    """
+    out = np.full(len(speed), np.nan, dtype=np.float32)
+    for a, b in blocks:
+        seg = speed[a : b + 1]
+        if not np.isnan(seg).all():
+            out[a : b + 1] = seg / np.nanmedian(seg)
+    return out
+
+
 def speed_bin(speed: np.ndarray, bins: list[float]) -> np.ndarray:
     """Faixa de velocidade (0 = mais lenta) por frame; NaN cai na faixa mais rápida (sem sinal de parada)."""
     return np.digitize(np.nan_to_num(speed, nan=np.inf), bins).astype(np.int8)
 
 
-def degrade(trk: Tracking, missing_rate: float, mean_gap_s: float, fps: int, seed: int) -> Tracking:
+def degrade(
+    trk: Tracking,
+    missing_rate: float,
+    mean_gap_s: float,
+    fps: float,
+    seed: int,
+    blocks: list[tuple[int, int]],
+) -> Tracking:
     """Cópia de trk com a bola apagada em buracos contíguos (comprimento geométrico) até a fração
-    de frames sem bola (contando os já ausentes) chegar a missing_rate. Determinístico por seed.
+    de frames sem bola dentro dos blocos [first, last] (inclusivos; contando os já ausentes) chegar a
+    missing_rate. Fora dos blocos nada muda: a meta do alvo (DATA.md) é sobre os frames avaliados.
+    Determinístico por seed.
 
     A bola é copiada; players e team são compartilhados com a entrada (não são modificados).
     """
     ball = trk.ball.copy()
-    n = len(ball)
-    gone = np.isnan(ball).any(axis=1)
-    target = int(round(missing_rate * n))
+    inside = np.zeros(len(ball), dtype=bool)
+    for a, b in blocks:
+        inside[a : b + 1] = True
+    pos = np.flatnonzero(inside)
+    gone = np.isnan(ball).any(axis=1) & inside
+    target = int(round(missing_rate * len(pos)))
     rng = np.random.default_rng(seed)
     p = 1.0 / max(mean_gap_s * fps, 1.0)
     while gone.sum() < target:
-        start = int(rng.integers(n))
+        start = int(pos[rng.integers(len(pos))])
         size = min(int(rng.geometric(p)), target - int(gone.sum()))  # último buraco não ultrapassa a meta
-        gone[start : start + size] = True
+        gone[start : start + size] |= inside[start : start + size]
     ball[gone] = np.nan
     return Tracking(ball=ball, players=trk.players, team=trk.team)

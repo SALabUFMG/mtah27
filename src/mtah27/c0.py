@@ -81,11 +81,27 @@ def decode_game(
     mot: np.ndarray,
     params: dict,
     min_dur_s: dict[str, float],
-    fps: float,
+    hz: float,
+    idx: np.ndarray,
     blocks: list[tuple[int, int]],
+    n: int,
 ) -> np.ndarray:
-    """Decodifica cada bloco [first, last] (inclusivo) separadamente; X (3) fora dos blocos."""
-    out = np.full(len(obs), 3, dtype=np.int8)
+    """Decodifica na grade e devolve [n] rótulos nativos; X (3) fora dos blocos.
+
+    obs/mot estão na grade de hz (amostra k = frame nativo idx[k]); blocks são nativos [first, last]
+    (inclusivos). Cada bloco é decodificado separadamente e cada frame nativo dele recebe o rótulo
+    da amostra mais próxima do mesmo bloco.
+    """
+    out = np.full(n, 3, dtype=np.int8)
     for a, b in blocks:
-        out[a : b + 1] = decode(obs[a : b + 1], mot[a : b + 1], params, min_dur_s, fps)
+        ks = np.flatnonzero((idx >= a) & (idx <= b))
+        if not len(ks):
+            continue
+        dec = decode(obs[ks], mot[ks], params, min_dur_s, hz)
+        f = np.arange(a, b + 1)
+        sub = idx[ks]
+        right = np.searchsorted(sub, f).clip(0, len(sub) - 1)
+        left = (right - 1).clip(0)
+        nearest = np.where(f - sub[left] <= np.abs(sub[right] - f), left, right)
+        out[a : b + 1] = dec[nearest]
     return out

@@ -29,12 +29,15 @@ def predict(config: dict[str, Any]) -> np.ndarray:
     game = config.get("game", "BAR-ATH")
     fitted = load_config(config["c0"]["fitted"])
     trk = load_tracking(game)
-    fps = GAMES[game]["fps"]
+    n, hz = len(trk.ball), fitted["hz"]
+    idx = observe.grid(n, GAMES[game]["fps"], hz)
+    trk = observe.subsample(trk, idx)
     obs = observe.observe(trk, fitted["r_close_m"], GAMES[game]["pitch"])
-    speed = observe.player_speed(trk, fps, fitted["speed"]["window_s"])
-    mot = observe.speed_bin(speed, fitted["speed"]["bins_ms"])
     blocks = [(first, last) for _, first, last in half_video_blocks(game)]
-    codes = c0.decode_game(obs, mot, fitted, fitted["min_dur_s"], fps, blocks)
+    speed = observe.player_speed(trk, hz, fitted["speed"]["window_s"])
+    speed = observe.normalize_speed(speed, observe.grid_blocks(idx, blocks))
+    mot = observe.speed_bin(speed, fitted["speed"]["bins_rel"])
+    codes = c0.decode_game(obs, mot, fitted, fitted["min_dur_s"], hz, idx, blocks, n)
     out = empty_labels(game)
     out[:] = CODES[codes]
     return out

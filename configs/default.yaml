@@ -15,13 +15,14 @@ output:
 # jogos externos da Metrica (leave-one-game-out), NUNCA nos 5 min públicos.
 c0:
   fitted: c0_fitted.yaml     # gerado por scripts/calibrate_c0.py
+  hz: 5                      # grade comum: tudo é reamostrado para hz (1 frame por amostra) e volta à taxa nativa
   degrade:                   # simula a bola ausente do alvo nos jogos externos
     missing_rate: 0.41       # estatística publicada no DATA.md (frames avaliados)
     mean_gap_s: 2.0          # prior, chute: a forma das lacunas do alvo é desconhecida
     seed: 0
   speed:                     # velocidade mediana dos jogadores: sinal de bola morta sem depender da bola
     window_s: 1.0
-    bins_ms: [1.0, 1.5]      # cortes vistos nos jogos externos (D ~0,9 m/s; vivo ~1,7 m/s de mediana)
+    bins_rel: [0.75, 1.0]    # cortes na velocidade / mediana do tempo (externos: D ~0,7; vivo ~1,2 de mediana)
   grid:
     r_close_m: [1, 2]
     min_dur_s: [2, 4, 6, 8]  # H e A usam o valor; D usa o dobro

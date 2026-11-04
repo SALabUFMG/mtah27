@@ -3,6 +3,7 @@ import importlib
 import numpy as np
 
 from mtah27 import c0, paths
+from mtah27.observe import grid
 
 assert paths.OFFICIAL.exists()  # importar paths põe o repo oficial no sys.path
 MISSING_P = 0.3
@@ -44,12 +45,15 @@ def test_fit_recupera_emissao_e_missing_neutro():
     assert p == c0.fit(obs, mot, labels, n_mot=3)
 
 
-def test_decode_game_blocos_e_macro_f1():
-    obs, mot, labels = synth()
-    p = c0.fit(obs, mot, labels, n_mot=3)
-    blocks = [(1000, 14999), (16000, 29000)]
-    pred = c0.decode_game(obs, mot, p, MIN_DUR, 25, blocks)
-    assert (pred[:1000] == 3).all() and (pred[15000:16000] == 3).all() and (pred[29001:] == 3).all()
+def test_decode_game_na_grade_blocos_e_macro_f1():
+    obs, mot, labels = synth()  # "nativo" a 25 fps; decodifica a 5 Hz
+    idx = grid(len(labels), 25, 5)
+    p = c0.fit(obs[idx], mot[idx], labels[idx], n_mot=3)
+    blocks = [(1003, 14999), (16000, 29000)]
+    pred = c0.decode_game(obs[idx], mot[idx], p, MIN_DUR, 5, idx, blocks, len(labels))
+    assert len(pred) == len(labels)
+    assert (pred[:1003] == 3).all() and (pred[15000:16000] == 3).all() and (pred[29001:] == 3).all()
+    assert (pred[1003:15000] != 3).all() and (pred[16000:29001] != 3).all()
     gt = np.full(len(labels), 3, dtype=np.int8)
     for a, b in blocks:
         gt[a : b + 1] = labels[a : b + 1]
