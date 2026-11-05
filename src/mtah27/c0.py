@@ -42,6 +42,18 @@ def fit(obs: np.ndarray, mot: np.ndarray, labels: np.ndarray, n_mot: int, alpha:
     np.add.at(mcounts, (labels[lab], np.asarray(mot)[lab]), 1)
     memit = (mcounts + alpha) / (mcounts + alpha).sum(axis=1, keepdims=True)
 
+    return {
+        "emission": emit.tolist(),
+        "emission_motion": memit.tolist(),
+        "transition": fit_transition(labels, alpha).tolist(),
+        "n_frames": int(lab.sum()),
+    }
+
+
+def fit_transition(labels: np.ndarray, alpha: float = 1.0) -> np.ndarray:
+    """Transição [3,3] entre H/A/D estimada em pares consecutivos de frames rotulados (X ignorado)."""
+    labels = np.asarray(labels)
+    lab = labels < 3
     both = lab[1:] & lab[:-1]
     trans = np.zeros((3, 3))
     np.add.at(trans, (labels[:-1][both], labels[1:][both]), 1)
@@ -56,13 +68,16 @@ def fit(obs: np.ndarray, mot: np.ndarray, labels: np.ndarray, n_mot: int, alpha:
     to /= to.sum(axis=1, keepdims=True)
     T = to * p_leave[:, None]
     np.fill_diagonal(T, 1 - p_leave)
+    return T
 
-    return {
-        "emission": emit.tolist(),
-        "emission_motion": memit.tolist(),
-        "transition": T.tolist(),
-        "n_frames": int(lab.sum()),
-    }
+
+def to_native(dec: np.ndarray, idx_block: np.ndarray, a: int, b: int) -> np.ndarray:
+    """Rótulos da grade (dec, em idx_block, nativos ordenados) para os frames a..b, pelo mais próximo."""
+    f = np.arange(a, b + 1)
+    right = np.searchsorted(idx_block, f).clip(0, len(idx_block) - 1)
+    left = (right - 1).clip(0)
+    nearest = np.where(f - idx_block[left] <= np.abs(idx_block[right] - f), left, right)
+    return dec[nearest]
 
 
 def decode(
@@ -98,10 +113,5 @@ def decode_game(
         if not len(ks):
             continue
         dec = decode(obs[ks], mot[ks], params, min_dur_s, hz)
-        f = np.arange(a, b + 1)
-        sub = idx[ks]
-        right = np.searchsorted(sub, f).clip(0, len(sub) - 1)
-        left = (right - 1).clip(0)
-        nearest = np.where(f - sub[left] <= np.abs(sub[right] - f), left, right)
-        out[a : b + 1] = dec[nearest]
+        out[a : b + 1] = to_native(dec, idx[ks], a, b)
     return out
