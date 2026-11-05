@@ -26,3 +26,13 @@ c0:
   grid:
     r_close_m: [1, 2]
     min_dur_s: [2, 4, 6, 8]  # H e A usam o valor; D usa o dobro
+
+# Caminho C1: emissão GBM (features de janela) no mesmo Viterbi do C0. hz e degrade vêm da seção c0.
+c1:
+  fitted: c1_fitted.yaml     # gerado por scripts/calibrate_c1.py
+  window_s: 2.0              # janela (média móvel centrada) das features
+  n_aug: 2                   # cópias degradadas por jogo no treino (seeds degrade.seed + 0..n_aug-1)
+  grid:                      # varrida só na decodificação, sem retreinar
+    min_dur_ha_s: [1, 2, 3, 4, 6]   # duração mínima de H e A
+    min_dur_d_s: [2, 4, 8]          # duração mínima de D
+    emission_weight: [0.5, 1.0]     # peso da log-emissão frente à transição
