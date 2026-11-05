@@ -48,3 +48,10 @@ def test_falta_classe_da_erro_claro():
     y = np.where(labels == 2, 3, labels)  # D vira X: some do treino
     with pytest.raises(ValueError, match="3 classes"):
         c1.fit(X, y, params=FAST)
+
+
+def test_live_blocks_e_live_aug_exige_duas_copias():
+    assert c1.live_blocks(np.array([2, 0, 0, 1, 2, 3, 1, 2], np.int8)) == [(1, 3), (6, 6)]
+    assert c1.live_blocks(np.array([2, 3], np.int8)) == []
+    with pytest.raises(ValueError, match="n_aug >= 2"):
+        c1.game_features(None, np.zeros(10, np.int8), 25, None, 5, {}, 2.0, 1, live_aug=True)

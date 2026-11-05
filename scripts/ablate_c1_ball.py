@@ -6,7 +6,9 @@ em leave-one-game-out nos 3 jogos, no ponto de c1_fitted.yaml):
 
 - full: as 33 features;
 - sem_presenca: sem ball_present e ball_presence_win;
-- sem_bola: sem nenhuma feature que use a bola (limite inferior).
+- sem_bola: sem nenhuma feature que use a bola (limite inferior);
+- aug_vivo: as 33 features, mas a última das n_aug cópias de treino tem a bola apagada só nos frames
+  vivos (c1.game_features com live_aug).
 
 Condições de teste: "padrão" (a degradação da calibração, 41% sem bola nos blocos) e "estresse"
 (lacunas sorteadas só nos frames vivos até 41% deles sem bola). Com --target, imprime também a fração
@@ -32,29 +34,26 @@ BALL_FEATURES = {
     "ball_d_end", "home_d1", "home_d2", "away_d1", "away_d2", "d_diff", "d_diff_win", "home_n3",
     "home_n8", "away_n3", "away_n8", "nearest_home_win", "home_dball", "away_dball",
 }  # fmt: skip
-DROP = {
-    "full": set(),
-    "sem_presenca": {"ball_present", "ball_presence_win"},
-    "sem_bola": BALL_FEATURES,
+VARIANTS = {  # nome: (features retiradas, live_aug no treino)
+    "full": (set(), False),
+    "sem_presenca": ({"ball_present", "ball_presence_win"}, False),
+    "sem_bola": (BALL_FEATURES, False),
+    "aug_vivo": (set(), True),
 }
 
 
-def live_blocks(labels_grid):
-    """Trechos contíguos [first, last] de H/A na grade."""
-    live = np.r_[False, labels_grid < 2, False]
-    edges = np.flatnonzero(np.diff(live.astype(np.int8)))
-    return [(int(a), int(b) - 1) for a, b in zip(edges[::2], edges[1::2], strict=True)]
-
-
 def load(cfg_c0, fitted_cfg):
-    """Por jogo da Metrica: features de treino (n_aug cópias), de teste padrão e de estresse."""
+    """Por jogo da Metrica: features de treino (n_aug cópias, com e sem live_aug), de teste padrão e de
+    estresse."""
     hz, window_s, deg = fitted_cfg["hz"], fitted_cfg["window_s"], cfg_c0["degrade"]
     games = []
     for i in (1, 2, 3):
         trk, labels = external.load_sample_game(i)
         g = c1.game_features(trk, labels, 25, external.PITCH, hz, deg, window_s, fitted_cfg["n_aug"])
+        aug = c1.game_features(trk, labels, 25, external.PITCH, hz, deg, window_s, fitted_cfg["n_aug"], True)
+        g["feats_aug"] = aug["feats"]
         sub = observe.subsample(trk, g["idx"])
-        stress = observe.degrade(sub, **deg, fps=hz, blocks=live_blocks(g["labels_grid"]))
+        stress = observe.degrade(sub, **deg, fps=hz, blocks=c1.live_blocks(g["labels_grid"]))
         gblocks = observe.grid_blocks(g["idx"], g["blocks"])
         g["stress"] = features.window_features(stress, external.PITCH, hz, gblocks, window_s)
         live = g["labels_grid"] < 2
@@ -80,12 +79,14 @@ def main():
     miss = "/".join(f"{g['miss_live']:.2f}" for g in games)
     print(f"carga {time.time() - t0:.0f}s; estresse: fração sem bola nos frames vivos {miss}", flush=True)
 
-    cols = {v: [j for j, f in enumerate(features.FEATURES) if f not in drop] for v, drop in DROP.items()}
+    cols = {
+        v: [j for j, f in enumerate(features.FEATURES) if f not in drop] for v, (drop, _) in VARIANTS.items()
+    }
     print("variante      teste     spellF1  macroF1  D_prec  D_rec   n_pred/n_gt")
     for v, keep in cols.items():
         res = {"padrão": [], "estresse": []}
         for i, g in enumerate(games):
-            X, y = c1.train_rows(games[:i] + games[i + 1 :])
+            X, y = c1.train_rows(train_games(games[:i] + games[i + 1 :], VARIANTS[v][1]))
             fitted = c1.fit(X[:, keep], y, seed=0)
             for cond, Xt in (("padrão", g["feats"][0]), ("estresse", g["stress"])):
                 pred = c1.decode_game(Xt[:, keep], fitted, md, hz, g["idx"], g["blocks"], len(g["labels"]), w)
@@ -103,6 +104,11 @@ def main():
     print(f"tempo: {time.time() - t0:.0f}s")
 
 
+def train_games(games, live_aug):
+    """Os jogos com as cópias de treino da variante (feats_aug quando live_aug)."""
+    return [{**g, "feats": g["feats_aug"]} if live_aug else g for g in games]
+
+
 def target_d_share(cfg_c0, fitted_cfg, games, cols):
     """Fração de D prevista nos frames avaliados do alvo, por variante (treino nos 3 jogos)."""
     from games import GAMES, half_video_blocks  # type: ignore
@@ -116,11 +122,11 @@ def target_d_share(cfg_c0, fitted_cfg, games, cols):
         observe.subsample(trk, idx), GAMES["BAR-ATH"]["pitch"], hz, observe.grid_blocks(idx, blocks),
         fitted_cfg["window_s"],
     )  # fmt: skip
-    X, y = c1.train_rows(games)
     inside = np.zeros(n, bool)
     for a, b in blocks:
         inside[a : b + 1] = True
     for v, keep in cols.items():
+        X, y = c1.train_rows(train_games(games, VARIANTS[v][1]))
         fitted = c1.fit(X[:, keep], y, seed=0)
         pred = c1.decode_game(
             Xt[:, keep], fitted, fitted_cfg["min_dur_s"], hz, idx, blocks, n, fitted_cfg["emission_weight"]

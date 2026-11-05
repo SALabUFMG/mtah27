@@ -74,18 +74,32 @@ def decode_game(
     return out
 
 
-def game_features(trk, labels, fps, pitch, hz, degrade: dict, window_s: float, n_aug: int) -> dict:
+def live_blocks(labels_grid: np.ndarray) -> list[tuple[int, int]]:
+    """Trechos contíguos [first, last] de H/A na grade."""
+    live = np.r_[False, labels_grid < 2, False]
+    edges = np.flatnonzero(np.diff(live.astype(np.int8)))
+    return [(int(a), int(b) - 1) for a, b in zip(edges[::2], edges[1::2], strict=True)]
+
+
+def game_features(
+    trk, labels, fps, pitch, hz, degrade: dict, window_s: float, n_aug: int, live_aug: bool = False
+) -> dict:
     """Features de n_aug cópias degradadas de um jogo externo (seeds degrade.seed + 0..n_aug-1).
 
     A bola é apagada só dentro dos blocos rotulados, como no C0. A cópia 0 é a da avaliação.
+    Com live_aug, a última cópia tem a bola apagada só nos frames vivos (H/A), até missing_rate deles:
+    tira do treino a correlação "bola ausente = D" dos jogos externos.
     """
+    if live_aug and n_aug < 2:
+        raise ValueError("live_aug precisa de n_aug >= 2 (a cópia 0 é a da avaliação)")
     idx = observe.grid(len(labels), fps, hz)
     blocks = [(a, b - 1) for a, b in pm.valid_runs(labels)]
     gblocks = observe.grid_blocks(idx, blocks)
     sub = observe.subsample(trk, idx)
     feats = []
     for s in range(n_aug):
-        deg = observe.degrade(sub, **{**degrade, "seed": degrade["seed"] + s}, fps=hz, blocks=gblocks)
+        dblocks = live_blocks(labels[idx]) if live_aug and s == n_aug - 1 else gblocks
+        deg = observe.degrade(sub, **{**degrade, "seed": degrade["seed"] + s}, fps=hz, blocks=dblocks)
         feats.append(features.window_features(deg, pitch, hz, gblocks, window_s))
     return {"feats": feats, "labels": labels, "labels_grid": labels[idx], "idx": idx, "blocks": blocks}
 
@@ -109,7 +123,7 @@ def fit_metrica(cfg_c0: dict, fitted_cfg: dict) -> dict:
         games.append(
             game_features(
                 trk, labels, 25, external.PITCH, fitted_cfg["hz"], cfg_c0["degrade"],
-                fitted_cfg["window_s"], fitted_cfg["n_aug"],
+                fitted_cfg["window_s"], fitted_cfg["n_aug"], fitted_cfg.get("live_aug", False),
             )
         )  # fmt: skip
     return fit(*train_rows(games), seed=0)
