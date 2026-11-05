@@ -7,6 +7,7 @@
 team_name: "SALab UFMG"    # exatamente como na inscrição; o CSV sai como SALab_UFMG.csv
 game: BAR-ATH
 source: tactical           # a submissão é indexada pelo vídeo tático
+model: c1                  # caminho da submissão: c0 (HMM categórico) ou c1 (GBM + mesmo Viterbi)
 
 output:
   dir: outputs/submissions

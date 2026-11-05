@@ -1,0 +1,46 @@
+# Gerado por scripts/calibrate_c1.py. Não edite à mão.
+cv_macro_f1: 0.7934
+cv_spell_f1: 0.5922
+emission_weight: 1.0
+extra_train: none
+features:
+- ball_present
+- ball_presence_win
+- ball_speed
+- ball_speed_win
+- ball_out
+- ball_d_side
+- ball_d_end
+- home_d1
+- home_d2
+- away_d1
+- away_d2
+- d_diff
+- d_diff_win
+- home_n3
+- home_n8
+- away_n3
+- away_n8
+- nearest_home_win
+- home_cx_mid
+- home_cy
+- home_spread
+- home_cspeed
+- home_n
+- home_dball
+- away_cx_mid
+- away_cy
+- away_spread
+- away_cspeed
+- away_n
+- away_dball
+- speed_med
+- speed_med_norm
+- slow_frac
+hz: 5
+min_dur_s:
+  A: 2
+  D: 4
+  H: 2
+n_aug: 2
+window_s: 2.0
