@@ -37,3 +37,27 @@ c1:
     min_dur_ha_s: [1, 2, 3, 4, 6]   # duração mínima de H e A
     min_dur_d_s: [2, 4, 8]          # duração mínima de D
     emission_weight: [0.5, 1.0]     # peso da log-emissão frente à transição
+
+# Caminho C2: encoder FC-JEPA pré-treinado (autossupervisionado) em janelas contínuas da Metrica, da
+# PFF e do jogo da competição (scripts/prep_jepa.py, scripts/pretrain_jepa.py). Em teste, não é a submissão.
+c2:
+  window_frames: 20          # T: 4 s na grade de 5 Hz
+  pretrain:
+    stride: 2                # passo entre janelas (amostras da grade)
+    d_model: 128
+    depth: 6
+    n_heads: 4
+    epochs: 20
+    batch_size: 256
+    lr: 1.0e-3
+    warmup_epochs: 1
+    weight_decay: 0.05
+    ema: [0.996, 1.0]        # momento do target encoder, de-até (linear no treino)
+    grad_clip: 10.0
+    mask:                    # mesmo gerador do FC-JEPA (jepa/masking.py)
+      mode: mixed_block
+      time_mask_ratio: 0.8
+      agent_mask_ratio: 0.8
+      num_blocks: 4
+    n_val_pff: 3             # jogos da PFF fora do pré-treino, só para acompanhar a perda
+    seed: 0

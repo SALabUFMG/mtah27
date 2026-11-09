@@ -12,6 +12,7 @@ dependencies = [
     "kloppy==3.18.0", # versão que lê o export EPTS da Metrica (pinada pelo repo oficial)
     "matplotlib>=3.8",
     "scikit-learn>=1.9.1",
+    "torch>=2.15.0",
 ]
 
 [dependency-groups]
@@ -36,7 +37,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["external", "docs/official"]
+extend-exclude = ["external", "docs/official", "src/mtah27/jepa"]  # jepa: cópia do fc-jepa, como veio
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
