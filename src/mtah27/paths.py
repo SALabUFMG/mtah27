@@ -33,6 +33,6 @@ CONFIGS_DIR = ROOT / "configs"
 if not (OFFICIAL / "games.py").exists():
     raise RuntimeError("Submódulo oficial ausente. Rode:  git submodule update --init --recursive")
 
-for p in (OFFICIAL, OFFICIAL / "evaluation"):
+for p in (OFFICIAL, OFFICIAL / "evaluation", OFFICIAL / "starter"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))

@@ -9,8 +9,9 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=16",
     "pyyaml>=6",
-    "kloppy==3.18.0",   # versão que lê o export EPTS da Metrica (pinada pelo repo oficial)
+    "kloppy==3.18.0", # versão que lê o export EPTS da Metrica (pinada pelo repo oficial)
     "matplotlib>=3.8",
+    "scikit-learn>=1.9.1",
 ]
 
 [dependency-groups]
@@ -35,7 +36,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["external"]
+extend-exclude = ["external", "docs/official"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

@@ -7,6 +7,33 @@
 team_name: "SALab UFMG"    # exatamente como na inscrição; o CSV sai como SALab_UFMG.csv
 game: BAR-ATH
 source: tactical           # a submissão é indexada pelo vídeo tático
+model: c1                  # caminho da submissão: c0 (HMM categórico) ou c1 (GBM + mesmo Viterbi)
 
 output:
   dir: outputs/submissions
+
+# Caminho C0: HMM H/A/D sobre a observação por frame (ver observe.py). Parâmetros ajustados nos
+# jogos externos da Metrica (leave-one-game-out), NUNCA nos 5 min públicos.
+c0:
+  fitted: c0_fitted.yaml     # gerado por scripts/calibrate_c0.py
+  hz: 5                      # grade comum: tudo é reamostrado para hz (1 frame por amostra) e volta à taxa nativa
+  degrade:                   # simula a bola ausente do alvo nos jogos externos
+    missing_rate: 0.41       # estatística publicada no DATA.md (frames avaliados)
+    mean_gap_s: 2.0          # prior, chute: a forma das lacunas do alvo é desconhecida
+    seed: 0
+  speed:                     # velocidade mediana dos jogadores: sinal de bola morta sem depender da bola
+    window_s: 1.0
+    bins_rel: [0.75, 1.0]    # cortes na velocidade / mediana do tempo (externos: D ~0,7; vivo ~1,2 de mediana)
+  grid:
+    r_close_m: [1, 2]
+    min_dur_s: [2, 4, 6, 8]  # H e A usam o valor; D usa o dobro
+
+# Caminho C1: emissão GBM (features de janela) no mesmo Viterbi do C0. hz e degrade vêm da seção c0.
+c1:
+  fitted: c1_fitted.yaml     # gerado por scripts/calibrate_c1.py
+  window_s: 2.0              # janela (média móvel centrada) das features
+  n_aug: 2                   # cópias degradadas por jogo no treino (seeds degrade.seed + 0..n_aug-1)
+  grid:                      # varrida só na decodificação, sem retreinar
+    min_dur_ha_s: [1, 2, 3, 4, 6]   # duração mínima de H e A
+    min_dur_d_s: [2, 4, 8]          # duração mínima de D
+    emission_weight: [0.5, 1.0]     # peso da log-emissão frente à transição
