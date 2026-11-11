@@ -201,6 +201,10 @@ def apply_sdpa(q, k, v, attn_mask_bool: Optional[torch.Tensor], add_bias):
     # Fast SDPA path
     # -------------------------------------------------------------------------
     if not _needs_chunked(attn_mask_bool, S_q, S_k):
+        # aqui True = BLOQUEIA; no SDPA do torch, máscara booleana True = PODE ATENDER. Sem inverter,
+        # o encoder atendia só aos tokens escondidos (alvos e slots vazios) e nunca aos visíveis.
+        if attn_mask_bool is not None:
+            attn_mask_bool = ~attn_mask_bool
         if add_bias is None:
             return F.scaled_dot_product_attention(
                 q, k, v, attn_mask=attn_mask_bool, is_causal=False
