@@ -35,11 +35,14 @@ _CONTEST = (
 )
 _TEAM = ("cx_mid", "cy", "spread", "cspeed", "n", "dball")
 _MOVE = ("speed_med", "speed_med_norm", "slow_frac")
+# ataque: posição e velocidade no sentido do gol adversário (lado inferido por bloco, ver window_features)
+_ATTACK = ("home_cx_att", "away_cx_att", "home_cvx_att", "away_cvx_att", "ball_x_att")
 FEATURES: tuple[str, ...] = (
     *_BALL,
     *_CONTEST,
     *(f"{t}_{n}" for t, _ in _TEAMS for n in _TEAM),
     *_MOVE,
+    *_ATTACK,
 )
 
 BALL_V_MAX = 40.0  # m/s; acima disso é salto do tracking
@@ -109,6 +112,7 @@ def window_features(
         f["nearest_home_win"] = _smooth(np.where(valid, (h < a).astype(float), np.nan), k)
 
         # times
+        cx, vx = {}, {}
         for name, t in _TEAMS:
             p = pl[:, trk.team == t]
             ok = ~np.isnan(p).any(axis=2)
@@ -132,6 +136,20 @@ def window_features(
             cv = np.r_[np.nan, np.where(nv > 0, np.hypot(mv[:, 0], mv[:, 1]), np.nan)]
             f[f"{name}_cspeed"] = _smooth(cv, k)
             f[f"{name}_n"] = cnt.astype(float)
+            cx[name] = c[:, 0]
+            vx[name] = np.r_[np.nan, np.where(nv > 0, mv[:, 0], np.nan)]
+
+        # ataque: em cada bloco (tempo), a casa ataca +x se o centróide mediano dela fica à esquerda do
+        # visitante. Só tracking do próprio bloco, nada amarrado a frame; +1/-1 por bloco, NaN fora
+        att = np.full(n, np.nan)
+        for a, b in blocks:
+            hm, am = cx["home"][a : b + 1], cx["away"][a : b + 1]
+            if np.isfinite(hm).any() and np.isfinite(am).any():
+                att[a : b + 1] = np.sign(np.nanmedian(am) - np.nanmedian(hm))
+        for name, s in (("home", att), ("away", -att)):
+            f[f"{name}_cx_att"] = s * (cx[name] - length / 2)
+            f[f"{name}_cvx_att"] = _smooth(s * vx[name], k)
+        f["ball_x_att"] = att * (bx - length / 2)
 
         # movimento
         sp = player_speed(trk, hz, 1.0, PLAYER_V_MAX).astype(np.float64)

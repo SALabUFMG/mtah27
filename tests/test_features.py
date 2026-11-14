@@ -74,8 +74,27 @@ def test_mirror_x_keeps_line_distances():
     t = _rand()
     m = Tracking(t.ball * [-1, 1] + [PITCH[0], 0], t.players * [-1, 1] + [PITCH[0], 0], t.team)
     x, y = _run(t), _run(m)
-    for n in ("ball_d_side", "ball_d_end", "home_cx_mid", "away_cx_mid", "home_dball", "away_dball"):
+    for n in ("ball_d_side", "ball_d_end", "home_cx_mid", "away_cx_mid", "home_dball", "away_dball",
+              "home_cx_att", "away_cx_att", "home_cvx_att", "away_cvx_att", "ball_x_att"):  # fmt: skip
         _equal(x[:, COL[n]], y[:, COL[n]])
+
+
+def test_attack_side_per_block():
+    """Casa à esquerda no 1º bloco e à direita no 2º: o sentido de ataque vira com o bloco."""
+    n = 40
+    pl = np.zeros((n, 2, 2))
+    pl[:, 0], pl[:, 1] = [30.0, 34.0], [70.0, 34.0]  # casa, visitante
+    pl[20:, 0, 0], pl[20:, 1, 0] = 70.0, 30.0
+    pl[:, 0, 0] += np.arange(n) * 0.2  # casa anda +x o jogo todo (1 m/s)
+    ball = np.tile([60.0, 34.0], (n, 1))
+    x = window_features(Tracking(ball, pl, np.array([HOME, AWAY])), PITCH, HZ, [(0, 19), (20, n - 1)])
+    h1, h2 = x[5:15], x[25:35]
+    for h in (h1, h2):  # nos dois blocos cada time está no próprio campo
+        assert (h[:, COL["home_cx_att"]] < 0).all() and (h[:, COL["away_cx_att"]] < 0).all()
+    np.testing.assert_allclose(h1[:, COL["home_cvx_att"]], 1.0, atol=1e-5)
+    np.testing.assert_allclose(h2[:, COL["home_cvx_att"]], -1.0, atol=1e-5)
+    np.testing.assert_allclose(h1[:, COL["ball_x_att"]], 7.5, atol=1e-5)
+    np.testing.assert_allclose(h2[:, COL["ball_x_att"]], -7.5, atol=1e-5)
 
 
 def test_speed_30000x46():
