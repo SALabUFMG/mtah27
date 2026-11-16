@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
 
-from mtah27 import c0, external, features, observe
+from mtah27 import c0, dfl, external, features, gaps, observe
 from mtah27.viterbi import viterbi
 import possession_metrics as pm  # type: ignore  # noqa: E402  (no sys.path via mtah27.c0 -> paths)
 
@@ -82,13 +82,17 @@ def live_blocks(labels_grid: np.ndarray) -> list[tuple[int, int]]:
 
 
 def game_features(
-    trk, labels, fps, pitch, hz, degrade: dict, window_s: float, n_aug: int, live_aug: bool = False
-) -> dict:
+    trk, labels, fps, pitch, hz, degrade: dict, window_s: float, n_aug: int, live_aug: bool = False,
+    gaps_fitted: dict | None = None, fill_gap_s: float = 0.0,
+) -> dict:  # fmt: skip
     """Features de n_aug cópias degradadas de um jogo externo (seeds degrade.seed + 0..n_aug-1).
 
     A bola é apagada só dentro dos blocos rotulados, como no C0. A cópia 0 é a da avaliação.
     Com live_aug, a última cópia tem a bola apagada só nos frames vivos (H/A), até missing_rate deles:
     tira do treino a correlação "bola ausente = D" dos jogos externos.
+    Com gaps_fitted (gaps.fit no alvo), as lacunas seguem a ausência medida no alvo por faixa de
+    velocidade dos jogadores, no lugar das lacunas uniformes de observe.degrade.
+    fill_gap_s vai para features.window_features (bola interpolada nas lacunas curtas).
     """
     if live_aug and n_aug < 2:
         raise ValueError("live_aug precisa de n_aug >= 2 (a cópia 0 é a da avaliação)")
@@ -99,31 +103,41 @@ def game_features(
     feats = []
     for s in range(n_aug):
         dblocks = live_blocks(labels[idx]) if live_aug and s == n_aug - 1 else gblocks
-        deg = observe.degrade(sub, **{**degrade, "seed": degrade["seed"] + s}, fps=hz, blocks=dblocks)
-        feats.append(features.window_features(deg, pitch, hz, gblocks, window_s))
+        if gaps_fitted is not None:
+            deg = gaps.degrade_like(sub, gaps_fitted, hz, degrade["seed"] + s, dblocks)
+        else:
+            deg = observe.degrade(sub, **{**degrade, "seed": degrade["seed"] + s}, fps=hz, blocks=dblocks)
+        feats.append(features.window_features(deg, pitch, hz, gblocks, window_s, fill_gap_s))
     return {"feats": feats, "labels": labels, "labels_grid": labels[idx], "idx": idx, "blocks": blocks}
 
 
 def train_rows(games: list[dict]) -> tuple[np.ndarray, np.ndarray]:
     """X, y de todas as cópias dos jogos, com 1 linha X (NaN) entre elas para não criar transição falsa."""
     xs, ys = [], []
-    nan_row = np.full((1, len(features.FEATURES)), np.nan, np.float32)
     for g in games:
         for x in g["feats"]:
-            xs += [x, nan_row]
+            xs += [x, np.full((1, x.shape[1]), np.nan, np.float32)]
             ys += [g["labels_grid"], np.full(1, 3, g["labels_grid"].dtype)]
     return np.concatenate(xs), np.concatenate(ys)
 
 
-def fit_metrica(cfg_c0: dict, fitted_cfg: dict) -> dict:
-    """Treina o modelo da submissão nos 3 jogos públicos da Metrica (scripts/fetch_metrica_sample.py)."""
-    games = []
-    for i in (1, 2, 3):
-        trk, labels = external.load_sample_game(i)
-        games.append(
-            game_features(
-                trk, labels, 25, external.PITCH, fitted_cfg["hz"], cfg_c0["degrade"],
-                fitted_cfg["window_s"], fitted_cfg["n_aug"], fitted_cfg.get("live_aug", False),
-            )
-        )  # fmt: skip
+def fit_external(
+    cfg_c0: dict,
+    fitted_cfg: dict,
+    gaps_fitted: dict | None = None,
+    fill_gap_s: float = 0.0,
+    train_dfl: bool = False,
+) -> dict:
+    """Treina o modelo da submissão nos 3 jogos públicos da Metrica (scripts/fetch_metrica_sample.py) e,
+    com train_dfl, também nos 7 da DFL (scripts/fetch_dfl.py), em ordem fixa."""
+    sources = [(*external.load_sample_game(i), 25, external.PITCH) for i in (1, 2, 3)]
+    if train_dfl:
+        sources += [dfl.load_game(mid) for mid in dfl.game_ids()]
+    games = [
+        game_features(
+            trk, labels, fps, pitch, fitted_cfg["hz"], cfg_c0["degrade"], fitted_cfg["window_s"],
+            fitted_cfg["n_aug"], fitted_cfg.get("live_aug", False), gaps_fitted, fill_gap_s,
+        )
+        for trk, labels, fps, pitch in sources
+    ]  # fmt: skip
     return fit(*train_rows(games), seed=0)
