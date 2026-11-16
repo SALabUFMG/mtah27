@@ -52,14 +52,19 @@ def predict(config: dict[str, Any]) -> np.ndarray:
 def _predict_c1(config: dict[str, Any]) -> np.ndarray:
     game = config.get("game", "BAR-ATH")
     fitted_cfg = load_config(config["c1"]["fitted"])
-    model = c1.fit_metrica(config["c0"], fitted_cfg)
+    gaps_name = config["c1"].get("gaps_fitted")  # lacunas de bola medidas no alvo (measure_ball_gaps.py)
+    fill_gap_s = config["c1"].get("fill_gap_s", 0.0)  # bola interpolada nas lacunas curtas (features.py)
+    model = c1.fit_external(
+        config["c0"], fitted_cfg, load_config(gaps_name) if gaps_name else None, fill_gap_s,
+        config["c1"].get("train_dfl", False),
+    )  # fmt: skip
     trk = load_tracking(game)
     n, hz = len(trk.ball), fitted_cfg["hz"]
     idx = observe.grid(n, GAMES[game]["fps"], hz)
     blocks = [(first, last) for _, first, last in half_video_blocks(game)]
     X = features.window_features(
         observe.subsample(trk, idx), GAMES[game]["pitch"], hz, observe.grid_blocks(idx, blocks),
-        fitted_cfg["window_s"],
+        fitted_cfg["window_s"], fill_gap_s,
     )  # fmt: skip
     codes = c1.decode_game(
         X, model, fitted_cfg["min_dur_s"], hz, idx, blocks, n, fitted_cfg["emission_weight"]

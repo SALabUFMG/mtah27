@@ -97,3 +97,15 @@ def test_team_speed_ignores_appearing_slot():
     x = _run(Tracking(np.full((n, 2), np.nan), pl, np.array([HOME] * 4)))
     np.testing.assert_allclose(x[5:-5, COL["home_cspeed"]], 1.0, atol=1e-4)
     assert np.isnan(x[:, COL["away_cspeed"]]).all()
+
+
+def test_fill_short_gaps_interpola_so_lacunas_curtas():
+    from mtah27.features import fill_short_gaps
+
+    ball = np.array([[np.nan] * 2, [0, 0], [np.nan] * 2, [np.nan] * 2, [3, 6], *[[np.nan] * 2] * 4, [9, 9]])
+    out, gap, since = fill_short_gaps(ball.astype(np.float64), max_len=2)
+    assert np.allclose(out[2:4], [[1, 2], [2, 4]])  # lacuna de 2: linha reta entre as pontas
+    assert np.isnan(out[5:9]).all() and np.isnan(out[0]).all()  # lacuna de 4 e borda ficam vazias
+    assert np.array_equal(gap[1:], [0, 2, 2, 0, 4, 4, 4, 4, 0]) and np.isnan(gap[0])
+    assert np.array_equal(since[1:], [0, 1, 2, 0, 1, 2, 3, 4, 0])
+    assert np.isnan(ball[2]).all()  # a entrada não muda
