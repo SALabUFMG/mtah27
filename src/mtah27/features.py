@@ -42,6 +42,9 @@ FEATURES: tuple[str, ...] = (
     *_MOVE,
 )
 
+# só existem com fill_gap_s > 0 (bola interpolada nas lacunas curtas)
+GAP_FEATURES: tuple[str, ...] = ("ball_gap_s", "ball_since_s")
+
 BALL_V_MAX = 40.0  # m/s; acima disso é salto do tracking
 PLAYER_V_MAX = 12.0  # igual a observe.player_speed
 SLOW_MS = 0.5
@@ -64,14 +67,40 @@ def _two_nearest(d: np.ndarray) -> np.ndarray:
     return np.where(np.isinf(out), np.nan, out)
 
 
+def fill_short_gaps(ball: np.ndarray, max_len: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Bola [N, 2] com as lacunas de até max_len amostras interpoladas em linha reta entre a última e a
+    próxima posição vistas. Devolve também, por amostra, o comprimento da lacuna em que ela está (0 com
+    bola) e as amostras desde a última bola vista; NaN nos dois quando a lacuna encosta na borda do array.
+    """
+    n = len(ball)
+    seen = ~np.isnan(ball).any(axis=1)
+    idx = np.arange(n)
+    last = np.maximum.accumulate(np.where(seen, idx, -1))
+    nxt = np.minimum.accumulate(np.where(seen, idx, n)[::-1])[::-1]
+    edge = (last < 0) | (nxt >= n)
+    gap = np.where(edge, np.nan, np.where(seen, 0, nxt - last - 1))
+    since = np.where(edge, np.nan, idx - last)
+    out = ball.copy()
+    fill = np.flatnonzero(~seen & ~edge & (nxt - last - 1 <= max_len))
+    w = ((fill - last[fill]) / (nxt[fill] - last[fill]))[:, None]
+    out[fill] = ball[last[fill]] * (1 - w) + ball[nxt[fill]] * w
+    return out, gap, since
+
+
 def window_features(
     trk: Tracking,
     pitch: tuple[float, float],
     hz: float,
     blocks: list[tuple[int, int]],
     window_s: float = 2.0,
+    fill_gap_s: float = 0.0,
 ) -> np.ndarray:
-    """Features float32 [N, len(FEATURES)] na grade de hz; janela = média móvel centrada de window_s."""
+    """Features float32 [N, len(FEATURES)] na grade de hz; janela = média móvel centrada de window_s.
+
+    Com fill_gap_s > 0, a bola é interpolada nas lacunas de até fill_gap_s antes das features de
+    distância e velocidade (ball_present e ball_presence_win continuam sendo da bola vista), e a saída
+    ganha as colunas GAP_FEATURES no fim.
+    """
     length, width = pitch
     k = max(1, round(window_s * hz))
     ball, pl = trk.ball.astype(np.float64), trk.players.astype(np.float64)
@@ -79,9 +108,14 @@ def window_features(
     f: dict[str, np.ndarray] = {}
     with np.errstate(invalid="ignore", divide="ignore"):
         # bola
+        f["ball_present"] = (~np.isnan(ball).any(axis=1)).astype(float)
+        names = FEATURES
+        if fill_gap_s > 0:
+            ball, gap, since = fill_short_gaps(ball, round(fill_gap_s * hz))
+            f["ball_gap_s"], f["ball_since_s"] = gap / hz, since / hz
+            names = FEATURES + GAP_FEATURES
         bx, by = ball[:, 0], ball[:, 1]
-        present = ~np.isnan(ball).any(axis=1)
-        f["ball_present"] = present.astype(float)
+        present = ~np.isnan(ball).any(axis=1)  # tem posição (vista ou interpolada)
         f["ball_presence_win"] = _smooth(f["ball_present"], k)
         v = np.r_[np.nan, np.hypot(np.diff(bx), np.diff(by)) * hz]
         v = np.where(v > BALL_V_MAX, np.nan, v)
@@ -144,5 +178,5 @@ def window_features(
         slow = np.r_[np.nan, np.where(nv > 0, slow, np.nan)]
         f["slow_frac"] = _smooth(slow, k)
 
-    X = np.stack([f[name] for name in FEATURES], axis=1) if n else np.empty((0, len(FEATURES)))
+    X = np.stack([f[name] for name in names], axis=1) if n else np.empty((0, len(names)))
     return np.where(np.isfinite(X), X, np.nan).astype(np.float32)
