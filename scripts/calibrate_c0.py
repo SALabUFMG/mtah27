@@ -22,7 +22,7 @@ import time
 import numpy as np
 import yaml
 
-from mtah27 import c0, external, observe, pff
+from mtah27 import c0, dfl, external, observe, pff
 from mtah27.config import load_config
 from mtah27.paths import CONFIGS_DIR
 import possession_metrics as pm  # type: ignore  # noqa: E402
@@ -59,6 +59,9 @@ def load_games(source, drop_estimated=()):
         for i in (1, 2, 3):
             trk, labels = external.load_sample_game(i)
             yield trk, labels, 25, external.PITCH
+    elif source == "dfl":
+        for mid in dfl.game_ids():
+            yield dfl.load_game(mid)
     else:
         for gid in pff.game_ids():
             yield pff.load_game(gid, drop_estimated)
