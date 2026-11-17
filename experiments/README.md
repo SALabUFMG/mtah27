@@ -1,18 +1,18 @@
-# Experimentos
+# Experiments
 
-Cada execução relevante vira uma linha em `log.csv`:
+Every relevant run becomes a line in `log.csv`:
 
-| coluna | o que é |
+| column | meaning |
 |---|---|
-| `date` | AAAA-MM-DD |
-| `author` | quem rodou |
-| `git_commit` | `git rev-parse --short HEAD` (commit limpo!) |
-| `config` | arquivo em `configs/` |
-| `description` | o que mudou em relação ao anterior |
-| `n_possessions` | nº de posses previstas (impresso pelo validador) |
-| `mean_poss_s` | duração média das posses previstas |
-| `val_spellF1` / `val_macroF1` | scores na validação **própria** do time |
-| `public_spellF1` / `public_macroF1` | scores nos 5 min públicos — **só sanidade, nunca para escolher versão** |
+| `date` | YYYY-MM-DD |
+| `author` | who ran it |
+| `git_commit` | `git rev-parse --short HEAD` (clean commit!) |
+| `config` | file in `configs/` |
+| `description` | what changed with respect to the previous run |
+| `n_possessions` | number of predicted possessions (printed by the validator) |
+| `mean_poss_s` | mean duration of the predicted possessions |
+| `val_spellF1` / `val_macroF1` | scores on the team's **own** validation (leave-one-game-out on external games) |
+| `public_spellF1` / `public_macroF1` | scores on the 5 public minutes, **sanity check only, never used to choose a version** |
 | `notes` | |
 
-Não colocar aqui nada derivado frame a frame dos dados.
+Descriptions and notes are in Portuguese. Nothing derived frame by frame from the data goes here.
