@@ -123,7 +123,7 @@ O `make_submission` imprime o SHA-256 do CSV. O da submissão da Fase 1 (tag `fa
 327c282a03fb566381bff3f14cb5d55939f71aa718ed921b42227a6f5199ced8
 ```
 
-conferido em Windows e Linux x86_64. A seed é fixa e o caminho da submissão não usa cache nem
+conferido em Windows, Linux x86_64 e macOS com Apple Silicon (arm64). A seed é fixa e o caminho da submissão não usa cache nem
 paralelismo não determinístico. Os dados da DFL e da PFF só aparecem nos experimentos
 (`scripts/fetch_dfl.py`, `scripts/extract_pff.py`) e não são necessários para reproduzir.
 

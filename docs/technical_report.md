@@ -1,7 +1,7 @@
-# SALab UFMG — More than a Hack 2027, Phase 1
+# SALab UFMG: More than a Hack 2027, Phase 1
 
 > Technical document for the submission, following the structure asked for in the official
-> SUBMISSION.md. Export as `SALab_UFMG.pdf` for the form.
+> SUBMISSION.md.
 
 ## 1. Approach
 
@@ -13,6 +13,50 @@ The model runs on a 5 Hz grid: one frame every 0.2 s goes in, and each native fr
 of the nearest sample within the same half. The grid is the same for every provider (25 fps in the
 target game and in Metrica, 29.97 in PFF), so minimum durations and transitions mean the same
 number of seconds everywhere.
+
+### How the model got here
+
+We built the model in four steps. Each step answers a weakness measured on the one before, always
+on external games. The spellF1 figures below are leave-one-game-out on the three Metrica games;
+section 3 explains the two protocols and why the last figure is not directly comparable with the
+first three.
+
+We started from the metric. spellF1 counts possessions, so a possession split into three pieces is
+an error, and a classifier that decides frame by frame flickers. The first version was therefore a
+state model: the same three-state HMM and Viterbi decoding, with an observation designed by hand.
+Each sample was reduced to a category built from the team of the player nearest to the ball and a
+band of player speed, and the minimum duration was 4 s for H and A and 8 s for D. It scored 0.495.
+
+An error analysis of that version (`scripts/error_analysis_c0.py`) showed where it lost. Almost
+half of the true possessions in validation last less than 4 s, and the model matched 11% of them,
+because it could not produce a possession shorter than its own minimum duration. Per-frame accuracy
+fell from 0.81 with the ball visible to 0.66 without it. A more informative emission lets the model
+use shorter minimum durations without fragmenting.
+
+The second step replaced the hand-built category with a learnt emission. A gradient boosting
+classifier reads 33 features of a 2 s window and its output becomes the emission of the same HMM,
+now with minimum durations of 2 s and 4 s. spellF1 rose to 0.592, a step of 0.10 that is larger
+than the noise between games (about ±0.04).
+
+The third step added the direction of play. The 33 features described distances and speeds, with
+nothing about which way each team was playing. Five more features give the position and velocity
+of each team's centroid and the position of the ball in the frame of reference of the goal that
+team attacks. spellF1 went to 0.618.
+
+The fourth step dealt with the ball, which is missing in 41% of the evaluated frames of the target
+game. When the ball disappears for up to 1 s and comes back, we interpolate its position, and two
+features tell the classifier how long the gap is and how long ago the ball was last seen
+(section 5). In paired comparisons this won 13 of 15 game × seed pairs. The submitted model scores
+0.621 spellF1 and 0.817 macroF1 at the fixed decoding point.
+
+Two other routes were tried and left out. One was a self-supervised encoder: a transformer
+pre-trained from scratch by JEPA-style masked prediction on windows of tracking (the Metrica and
+PFF games and, without labels, the target game), with a classification head trained on the external
+labels. Its best spellF1 in the same validation was 0.506, below the boosting emission, so we
+dropped it. That code is in the branch `jl/c2-fcjepa` and is not part of the submission. The other
+route was more training games from other providers, DFL and PFF, covered in section 3.
+
+### The submitted model in detail
 
 For each sample we compute 40 tracking features over a centred 2 s window
 (`src/mtah27/features.py`):
@@ -95,27 +139,29 @@ numbers from the other:
 - **paired**: fixed decoding point and 15 game × seed pairs, with both variants scored on the same
   pairs. It gives the difference between variants and in how many pairs one beats the other.
 
-| variant | protocol | spellF1 | macroF1 |
+| step | protocol | spellF1 | macroF1 |
 | --- | --- | --- | --- |
-| base (33 features) | grid | 0.592 | 0.793 |
-| base + attacking direction | grid | 0.618 | 0.799 |
-| **base + attacking direction + interpolation, 2/4/1 (submission)** | paired, mean | **0.621** | **0.817** |
+| state model with hand-built observation | grid | 0.495 | 0.748 |
+| learnt emission, 33 features | grid | 0.592 | 0.793 |
+| + attacking direction | grid | 0.618 | 0.799 |
+| **+ short-gap interpolation, 2/4/1 (submission)** | paired, mean | **0.621** | **0.817** |
 
 Paired measurements:
 
 | change | ΔspellF1 | pairs won | decision |
 | --- | --- | --- | --- |
-| 1 s interpolation on the base model | +0.019 | 14/15 | adopted |
-| 1 s interpolation on base + attacking direction | +0.013 | 13/15 | adopted |
-| gaps measured on the target instead of uniform gaps | +0.003 | 9–11/15 | not adopted |
+| 1 s interpolation on the 33-feature model | +0.019 | 14/15 | adopted |
+| 1 s interpolation with attacking direction | +0.013 | 13/15 | adopted |
+| gaps measured on the target instead of uniform gaps | +0.003 | 9 to 11 of 15 | not adopted |
 | best grid point (1/4/1) vs 2/4/1 | +0.005 | 10/15 | not adopted (maximum of 30 points) |
 | features over 1 + 2 + 5 s windows | −0.004 | 6/15 | not adopted |
 
-The between-game noise of spellF1 is about ±0.04. The gains from interpolation and from the
+The between-game noise of spellF1 is about ±0.04. The step from the hand-built observation to the
+learnt emission (0.10) is larger than that. The gains from interpolation and from the
 attacking-direction features are consistent across pairs but smaller than that noise, and the
 pairs repeat the same three games with different seeds, so they are not independent. LightGBM in
-place of scikit-learn scored 0.589 on the base model, within noise, and we kept scikit-learn to have
-one dependency less.
+place of scikit-learn scored 0.589 on the 33-feature model, within noise, and we kept scikit-learn
+to have one dependency less.
 
 ### Public DFL data (Bundesliga 2022/23)
 
@@ -126,17 +172,23 @@ downloaded by `scripts/fetch_dfl.py` from the PySport mirror on Hugging Face wit
 carries, per frame, whether the ball is in play and which team has possession, annotated by the
 DFL. That is the same construction as the competition's ground truth.
 
-Cross-evaluation by source, with the test game never in training, interpolation on (unless noted)
-and without the attacking-direction features:
+Cross-evaluation by source, with the test game never in training, interpolation on and without the
+attacking-direction features:
 
 | training | test on Metrica (spell / macro) | test on DFL (spell / macro) |
 | --- | --- | --- |
-| Metrica only | 0.605 / 0.812 | 0.333 / 0.680 (no interpolation) |
+| Metrica only | 0.605 / 0.812 | 0.330 / 0.648 |
 | Metrica + DFL | 0.605 / 0.817 | 0.473 / 0.871 |
 
-Adding DFL to training ties on Metrica and improves a lot on DFL. The submission trains on Metrica
-only. **[TBD by the team: why DFL was not used. E.g. the DFL + attacking-direction combination was
-not evaluated in time, and the 2.6 GB download would make reproduction heavier.]**
+Adding DFL to training ties on Metrica and improves a lot on DFL. Trained on Metrica only and
+without interpolation, the model scores 0.333 / 0.680 on DFL, so interpolation costs macroF1 there
+unless DFL is in training.
+
+The submission still trains on Metrica only. We measured DFL on the model without the
+attacking-direction features and did not evaluate the combination before the deadline, so adding
+it would have changed the training set of the submitted model on an untested configuration. The
+2.6 GB download would also make reproduction heavier. It is the first thing we would add
+(section 6).
 
 ### Public PFF data (2022 World Cup)
 
@@ -144,8 +196,8 @@ We also tested the 64 public PFF FC games as a training source. PFF distributes 
 free through a form at
 [blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset](https://www.blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset);
 the page states no licence. The data is not in the repository and is not needed to reproduce the
-submission; `scripts/extract_pff.py` converts it. Labels come from the events through the same
-rule, adjusted to the PFF format:
+submission; `scripts/extract_pff.py` converts it. Labels come from PFF's own event annotation
+through the same rule, adjusted to the PFF format:
 
 - a ball event changes possession only if it shows control (reception, carry, cross, shot, or a
   pass after another action). Duels, clearances, rebounds or isolated touches do not change it, and
@@ -158,7 +210,7 @@ We use the raw PFF ball (`balls`). The smoothed version (`ballsSmoothed`) is rep
 events and would leak the label. PFF marks some positions as estimated; for the ball we treat them
 as missing, since the target tracking does not estimate.
 
-PFF did not help. On the base model, adding PFF to training lowered spellF1 on Metrica from 0.592
+PFF did not help. On the 33-feature model, adding PFF to training lowered spellF1 on Metrica from 0.592
 to 0.563, although macroF1 rose from 0.793 to 0.812. PFF has fewer possessions per game than
 Metrica (226 vs 347), which suggests the two annotations count possession differently.
 
@@ -169,7 +221,9 @@ loose ball stays with the last team. The classifier learns this from labels in w
 and challenges do not change possession, and the minimum duration prevents changes shorter than
 2 s.
 
-A dead ball is always D, with no owner, as the challenge asks.
+A dead ball is always D, with no owner, as the challenge asks. In the training labels it starts at
+a ball out, a foul or a goal and ends at the restart, and the team that takes the restart has
+possession from that event on. That is the boundary the classifier learns.
 
 ## 5. Handling missing and noisy tracking
 
@@ -212,8 +266,13 @@ centroid displacement, which jumps when a tracklet appears or disappears.
 - Metrica is also a different provider. It is the closest we have to the target in format, but DFL
   is the source whose labels most resemble the official ones.
 - The model is retrained on every run. The CSV comes out byte-identical on Windows and Linux x86_64,
-  with one or several threads, as long as the environment is the one in `uv.lock` with Python 3.11.
-  We have not tested ARM (Apple Silicon).
+  with one or several threads, and on macOS with Apple Silicon (arm64), as long as the environment
+  is the one in `uv.lock` with Python 3.11.
+
+With more time we would first retrain with the DFL games together with the attacking-direction
+features, since DFL is the only source whose labels are built like the official ones. We would also
+try the ball from the broadcast tracking to fill the long gaps that interpolation leaves empty,
+which needs a time alignment between the two videos that the bundle does not provide.
 
 ## 7. Reproduction
 
