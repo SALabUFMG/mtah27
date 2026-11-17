@@ -173,7 +173,7 @@ git add external/mtah-official docs/official && git commit -m "Atualiza repo ofi
 
 ## Team
 
-SALab UFMG: João Lucas Lage Gonçalves, Ricardo Furbino, Gabriel Valadão Meira.
+SALab UFMG: Bruno Martins de Sá Freire, Gabriel Valadão Meira, João Lucas Lage Gonçalves, Ricardo Furbino.
 
 Documentation:
 
