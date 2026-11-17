@@ -143,9 +143,11 @@ avaliada a tempo, e o download de 2,6 GB tornaria a reprodução mais pesada.]**
 
 ### Dados públicos da PFF (Copa de 2022)
 
-Testamos também os 64 jogos públicos da PFF FC como fonte de treino. Os dados vêm dos arquivos
-públicos da PFF FC [**A DEFINIR: link de onde se obtêm os zips**], e `scripts/extract_pff.py` os
-converte. Os rótulos saem dos eventos pela mesma regra, com ajustes para o formato da PFF:
+Testamos também os 64 jogos públicos da PFF FC como fonte de treino. A PFF distribui o conjunto de
+graça, mediante um formulário em
+[blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset](https://www.blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset);
+a página não declara licença. Os dados não estão no repositório nem são necessários para reproduzir
+a submissão, e `scripts/extract_pff.py` os converte. Os rótulos saem dos eventos pela mesma regra, com ajustes para o formato da PFF:
 
 - um evento de bola só troca a posse se mostra controle (recepção, condução, cruzamento, chute, ou
   passe depois de outra ação). Duelo, corte, rebote ou toque isolado não trocam, e um passe de
