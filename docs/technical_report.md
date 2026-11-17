@@ -1,226 +1,235 @@
-# SALab UFMG — More than a Hack 2027, Fase 1
+# SALab UFMG — More than a Hack 2027, Phase 1
 
-> Documento técnico da submissão (poucas páginas). Estrutura pedida no SUBMISSION.md oficial.
-> Exportar como `SALab_UFMG.pdf` para o formulário.
+> Technical document for the submission, following the structure asked for in the official
+> SUBMISSION.md. Export as `SALab_UFMG.pdf` for the form.
 
-## 1. Abordagem
+## 1. Approach
 
-O modelo é um HMM de três estados (H, A, D) decodificado por Viterbi com duração
-mínima por estado, em que a emissão vem de um classificador de gradient boosting. Cada tempo do jogo
-é decodificado separadamente, e os frames fora dos dois tempos recebem `X`.
+The model is a three-state HMM (H, A, D) decoded with Viterbi under a minimum duration per state,
+whose emission comes from a gradient boosting classifier. Each half is decoded separately, and the
+frames outside the two halves get `X`.
 
-O modelo roda numa grade de 5 Hz: de cada 0,2 s entra um frame, e cada frame nativo recebe o
-rótulo da amostra mais próxima dentro do mesmo tempo. A grade é a mesma para todos os providers
-(25 fps no alvo e na Metrica, 29,97 na PFF), então a duração mínima e as transições valem o mesmo
-em segundos em todos.
+The model runs on a 5 Hz grid: one frame every 0.2 s goes in, and each native frame gets the label
+of the nearest sample within the same half. The grid is the same for every provider (25 fps in the
+target game and in Metrica, 29.97 in PFF), so minimum durations and transitions mean the same
+number of seconds everywhere.
 
-Para cada amostra calculamos 40 features do tracking numa janela centrada de 2 s
+For each sample we compute 40 tracking features over a centred 2 s window
 (`src/mtah27/features.py`):
 
-- bola: presença, velocidade, fora do campo, distância à linha lateral e à linha de fundo;
-- disputa: distância dos dois jogadores mais próximos da bola em cada time, a diferença entre os
-  mais próximos, quantos jogadores de cada time estão a menos de 3 m e de 8 m, e a fração da janela
-  em que o mais próximo é do Barcelona;
-- times: para cada um, posição do centróide, dispersão, velocidade média dos jogadores, número de
-  jogadores visíveis e distância do centróide à bola;
-- movimento: mediana da velocidade dos jogadores, a mesma dividida pela mediana do tempo de jogo, e
-  a fração de jogadores quase parados;
-- lado de ataque (5): posição em x do centróide de cada time, velocidade em x de cada time e posição
-  em x da bola, todas no referencial do gol que o time ataca;
-- lacuna de bola (2): tamanho da lacuna de bola em que a amostra está e tempo desde a última bola
-  vista (seção 5).
+- ball: presence, speed, out of the pitch, distance to the touchline and to the goal line;
+- contest: distance of the two players nearest to the ball in each team, the difference between
+  the nearest of each team, how many players of each team are within 3 m and 8 m, and the fraction
+  of the window in which the nearest player is from Barcelona;
+- teams: for each team, centroid position, spread, mean player speed, number of visible players and
+  centroid distance to the ball;
+- movement: median player speed, the same divided by the median over the half, and the fraction of
+  nearly stationary players;
+- attacking direction (5): x position of each team's centroid, x velocity of each team and x
+  position of the ball, all in the frame of reference of the goal that team attacks;
+- ball gap (2): length of the ball gap the sample is in, and time since the ball was last seen
+  (section 5).
 
-Nenhuma feature depende do índice do slot, só do time, porque os 46 slots do ATD não seguem uma
-pessoa. O lado que cada time ataca é inferido em cada tempo só pelo tracking daquele tempo: a casa
-ataca para +x se a mediana do x do seu centróide fica à esquerda da mediana do visitante. Os
-limites dos tempos vêm do helper oficial `games.half_video_blocks`; nada está amarrado a um frame.
+No feature depends on the slot index, only on the team, because the 46 ATD slots do not follow a
+person. The direction each team attacks is inferred per half from that half's tracking only: the
+home team attacks towards +x if the median x of its centroid lies to the left of the away team's.
+The half boundaries come from the official helper `games.half_video_blocks`; nothing is tied to a
+specific frame.
 
-Um `HistGradientBoostingClassifier` do scikit-learn (300 iterações, taxa 0,05, 31 folhas, seed 0)
-estima P(estado | features). O HMM precisa de P(features | estado), que pela regra de Bayes é
-proporcional a P(estado | features) / P(estado). Essa razão entra como emissão no Viterbi, com a
-transição contada nos rótulos de treino e duração mínima de 2 s para H e A e de 4 s para
-D. A duração mínima segura a fragmentação que o spellF1 pune: uma posse quebrada em três pedaços
-conta como erro.
+A scikit-learn `HistGradientBoostingClassifier` (300 iterations, learning rate 0.05, 31 leaves,
+seed 0) estimates P(state | features). The HMM needs P(features | state), which by Bayes' rule is
+proportional to P(state | features) / P(state). That ratio is the Viterbi emission. Transitions are
+counted on the training labels, and the minimum duration is 2 s for H and A and 4 s for D. The
+minimum duration holds back the fragmentation that spellF1 penalises: a possession broken into
+three pieces counts as an error.
 
-## 2. Dados utilizados
+## 2. Assets used
 
-Do bundle oficial o modelo usa só o ATD tático (`atd_meta` e `atd_raw`): posições de jogadores e
-bola, o time de cada slot e o tamanho do campo (105,3 × 68,0 m em `games.py`). O vídeo, a homografia
-e o broadcast não entram.
+From the official bundle the model uses only the tactical ATD (`atd_meta` and `atd_raw`): player
+and ball positions, the team of each slot and the pitch size (105.3 × 68.0 m, in `games.py`). The
+video, the homography and the broadcast are not used.
 
-O Smart Tagging não entra no modelo. Ele só existe para o jogo da competição, então o peso dele não
-pode ser calibrado nem validado nos jogos externos. Usamos o Smart Tagging uma vez como diagnóstico
-(`scripts/check_smart_tagging.py`): para cada código, a fração de frames que a submissão marca como D
-e a concordância entre o time previsto e o time da tag, só em agregados. Ele é automático, não é
-gabarito, e serviu para comparar variantes já escolhidas pela validação, não para escolher.
+Smart Tagging is not part of the model. It exists only for the competition game, so its weight
+could not be calibrated or validated on external games. We used it once as a diagnostic
+(`scripts/check_smart_tagging.py`): per code, the fraction of frames the submission marks as D and
+the agreement between the predicted team and the tag's team, as aggregates only. It is automatic,
+not ground truth, and it was used to look at variants already chosen by validation, not to choose
+between them.
 
-Também medimos, sem rótulo, a estatística das lacunas de bola do alvo (taxa e duração por faixa de
-velocidade dos jogadores, `scripts/measure_ball_gaps.py`) para degradar o treino com lacunas
-parecidas. Não houve ganho (seção 3) e isso ficou desligado.
+We also measured, without labels, the ball-gap statistics of the target game (rate and length per
+player-speed bin, `scripts/measure_ball_gaps.py`) to degrade the training games with similar gaps.
+It brought no gain (section 3) and is switched off.
 
-Os 5 minutos públicos só foram usados para checar que o pipeline está alinhado e bem-formado.
-Nenhum script de calibração ou de comparação de variantes os lê.
+The public 5 minutes were used only to check that the pipeline is aligned and well formed. No
+calibration or variant-comparison script reads them.
 
-## 3. Dados de treino e validação
+## 3. Training data and validation
 
-O modelo é treinado nos três jogos públicos da Metrica Sports
+The model is trained on the three public Metrica Sports games
 ([metrica-sports/sample-data](https://github.com/metrica-sports/sample-data), commit `e706dd5`).
-São de outra partida e foram baixados por `scripts/fetch_metrica_sample.py`, com o SHA-256 de cada
-arquivo verificado. O repositório não declara licença; o README pede uso responsável e atribuição
-à Metrica Sports. Nenhum dado do jogo da competição entra no treino ou na validação.
+They are other matches, downloaded by `scripts/fetch_metrica_sample.py` with the SHA-256 of every
+file checked. The repository declares no licence; its README asks for responsible use and
+attribution to Metrica Sports. No data from the competition game is used for training or
+validation.
 
-Os rótulos H/A/D por frame saem dos eventos desses jogos, que foram anotados por pessoas da
-Metrica, por uma regra fixa (`labels_from_events` em `src/mtah27/external.py`):
+The per-frame H/A/D labels come from these games' events, annotated by people at Metrica, through a
+fixed rule (`labels_from_events` in `src/mtah27/external.py`):
 
-- vale o time do último evento com controle de bola (passe, set piece, recuperação, chute,
-  condução);
-- perda de bola e disputa não trocam a posse;
-- D vai de uma bola fora, falta ou gol até o próximo evento de controle, que é o reinício. O tiro
-  de meta aparece como passe, não como set piece.
+- possession belongs to the team of the last event with ball control (pass, set piece, recovery,
+  shot, carry);
+- ball losses and challenges do not change possession;
+- D runs from a ball out, foul or goal until the next control event, which is the restart. Goal
+  kicks appear as passes, not as set pieces.
 
-Cada jogo entra no treino em duas cópias com a bola apagada em lacunas sorteadas com seeds
-diferentes (seção 5). O modelo não fica salvo no repositório: o `make_submission` o treina de novo
-nos três jogos, o que leva cerca de dois minutos.
+Each game enters training twice, with the ball removed in gaps drawn with different seeds
+(section 5). The model is not stored in the repository: `make_submission` retrains it on the three
+games, which takes about two minutes.
 
-A validação é leave-one-game-out (LOGO): treina em dois jogos e avalia no terceiro com a métrica
-oficial, girando os três. Usamos dois protocolos, e os números de um não se comparam com os do outro:
+Validation is leave-one-game-out (LOGO): train on two games and score the third with the official
+metric, rotating over the three. We used two protocols, and numbers from one are not comparable with
+numbers from the other:
 
-- **grade**: o modelo é treinado uma vez por jogo de teste e a grade (duração mínima de H e A de 1 a
-  6 s, de D de 2 a 8 s, peso 0,5 ou 1 na emissão) varia só a decodificação. O número é o máximo da
-  grade, com uma semente de degradação, e por isso é otimista;
-- **pareado**: ponto de decodificação fixo e 15 pares jogo × semente, com as duas variantes
-  avaliadas nos mesmos pares. Dá a diferença entre variantes e em quantos pares uma vence a outra.
+- **grid**: the model is trained once per test game and the grid (minimum duration of H and A from
+  1 to 6 s, of D from 2 to 8 s, emission weight 0.5 or 1) changes only the decoding. The number is
+  the maximum over the grid, with one degradation seed, so it is optimistic;
+- **paired**: fixed decoding point and 15 game × seed pairs, with both variants scored on the same
+  pairs. It gives the difference between variants and in how many pairs one beats the other.
 
-| variante | protocolo | spellF1 | macroF1 |
+| variant | protocol | spellF1 | macroF1 |
 | --- | --- | --- | --- |
-| base (33 features) | grade | 0,592 | 0,793 |
-| base + lado de ataque | grade | 0,618 | 0,799 |
-| **base + ataque + interpolação, 2/4/1 (submissão)** | pareado, média | **0,621** | **0,817** |
+| base (33 features) | grid | 0.592 | 0.793 |
+| base + attacking direction | grid | 0.618 | 0.799 |
+| **base + attacking direction + interpolation, 2/4/1 (submission)** | paired, mean | **0.621** | **0.817** |
 
-O que foi medido de forma pareada:
+Paired measurements:
 
-| mudança | ΔspellF1 | pares em que ganha | decisão |
+| change | ΔspellF1 | pairs won | decision |
 | --- | --- | --- | --- |
-| interpolação de 1 s sobre o modelo base | +0,019 | 14/15 | adotada |
-| interpolação de 1 s sobre base + ataque | +0,013 | 13/15 | adotada |
-| lacunas medidas no alvo no lugar das uniformes | +0,003 | 9–11/15 | não adotada |
-| melhor ponto da grade (1/4/1) contra 2/4/1 | +0,005 | 10/15 | não adotada (máximo de 30 pontos) |
-| features em janelas de 1 + 2 + 5 s | −0,004 | 6/15 | não adotada |
+| 1 s interpolation on the base model | +0.019 | 14/15 | adopted |
+| 1 s interpolation on base + attacking direction | +0.013 | 13/15 | adopted |
+| gaps measured on the target instead of uniform gaps | +0.003 | 9–11/15 | not adopted |
+| best grid point (1/4/1) vs 2/4/1 | +0.005 | 10/15 | not adopted (maximum of 30 points) |
+| features over 1 + 2 + 5 s windows | −0.004 | 6/15 | not adopted |
 
-O ruído entre jogos é de cerca de ±0,04 no spellF1. Os ganhos da interpolação e das features de ataque são consistentes nos pares, mas menores que esse
-ruído; os pares repetem os mesmos três jogos com sementes diferentes, então não são independentes.
-O LightGBM no lugar do scikit-learn deu 0,589 no modelo base, dentro do ruído, e ficamos com o
-scikit-learn para ter uma dependência a menos.
+The between-game noise of spellF1 is about ±0.04. The gains from interpolation and from the
+attacking-direction features are consistent across pairs but smaller than that noise, and the
+pairs repeat the same three games with different seeds, so they are not independent. LightGBM in
+place of scikit-learn scored 0.589 on the base model, within noise, and we kept scikit-learn to have
+one dependency less.
 
-### Dados públicos da DFL (Bundesliga 2022/23)
+### Public DFL data (Bundesliga 2022/23)
 
-Testamos os 7 jogos públicos da DFL (Bassek, Rein, Weber & Memmert, 2025, *Scientific Data*,
-[doi:10.1038/s41597-025-04505-y](https://doi.org/10.1038/s41597-025-04505-y), CC-BY 4.0), baixados
-por `scripts/fetch_dfl.py` do espelho da PySport no Hugging Face, com SHA-256 fixado (cerca de 2,6 GB).
-Ao contrário da Metrica e da PFF, o rótulo da DFL não sai de eventos: o próprio tracking traz, por
-frame, bola em jogo ou não e o time com a posse, que é a mesma construção do gabarito da competição.
+We tested the 7 public DFL games (Bassek, Rein, Weber & Memmert, 2025, *Scientific Data*,
+[doi:10.1038/s41597-025-04505-y](https://doi.org/10.1038/s41597-025-04505-y), CC-BY 4.0),
+downloaded by `scripts/fetch_dfl.py` from the PySport mirror on Hugging Face with pinned SHA-256
+(about 2.6 GB). Unlike Metrica and PFF, the DFL labels do not come from events: the tracking itself
+carries, per frame, whether the ball is in play and which team has possession, annotated by the
+DFL. That is the same construction as the competition's ground truth.
 
-Avaliação cruzada por fonte, sem o jogo de teste no treino, com a interpolação ligada (salvo onde indicado) e sem as
-features de ataque:
+Cross-evaluation by source, with the test game never in training, interpolation on (unless noted)
+and without the attacking-direction features:
 
-| treino | teste na Metrica (spell / macro) | teste na DFL (spell / macro) |
+| training | test on Metrica (spell / macro) | test on DFL (spell / macro) |
 | --- | --- | --- |
-| só Metrica | 0,605 / 0,812 | 0,333 / 0,680 (sem interpolação) |
-| Metrica + DFL | 0,605 / 0,817 | 0,473 / 0,871 |
+| Metrica only | 0.605 / 0.812 | 0.333 / 0.680 (no interpolation) |
+| Metrica + DFL | 0.605 / 0.817 | 0.473 / 0.871 |
 
-Somar a DFL ao treino empata na Metrica e melhora muito na DFL. A submissão treina só na Metrica.
-**[A DEFINIR pelo time: motivo de não usar a DFL. Ex.: a combinação DFL + features de ataque não foi
-avaliada a tempo, e o download de 2,6 GB tornaria a reprodução mais pesada.]**
+Adding DFL to training ties on Metrica and improves a lot on DFL. The submission trains on Metrica
+only. **[TBD by the team: why DFL was not used. E.g. the DFL + attacking-direction combination was
+not evaluated in time, and the 2.6 GB download would make reproduction heavier.]**
 
-### Dados públicos da PFF (Copa de 2022)
+### Public PFF data (2022 World Cup)
 
-Testamos também os 64 jogos públicos da PFF FC como fonte de treino. A PFF distribui o conjunto de
-graça, mediante um formulário em
+We also tested the 64 public PFF FC games as a training source. PFF distributes the dataset for
+free through a form at
 [blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset](https://www.blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset);
-a página não declara licença. Os dados não estão no repositório nem são necessários para reproduzir
-a submissão, e `scripts/extract_pff.py` os converte. Os rótulos saem dos eventos pela mesma regra, com ajustes para o formato da PFF:
+the page states no licence. The data is not in the repository and is not needed to reproduce the
+submission; `scripts/extract_pff.py` converts it. Labels come from the events through the same
+rule, adjusted to the PFF format:
 
-- um evento de bola só troca a posse se mostra controle (recepção, condução, cruzamento, chute, ou
-  passe depois de outra ação). Duelo, corte, rebote ou toque isolado não trocam, e um passe de
-  primeira só troca se for completo;
-- o JSON repete o evento uma vez por ação de posse; juntamos as linhas antes de aplicar a regra;
-- a disputa de pênaltis, que vem depois do fim da prorrogação, fica fora. Pênaltis durante o jogo
-  ficam.
+- a ball event changes possession only if it shows control (reception, carry, cross, shot, or a
+  pass after another action). Duels, clearances, rebounds or isolated touches do not change it, and
+  a first-time pass changes it only if completed;
+- the JSON repeats the event once per possession action; we merge those rows before applying the
+  rule;
+- the penalty shoot-out, after the end of extra time, is left out. Penalties during play are kept.
 
-A bola da PFF usada é a bruta (`balls`). A versão suavizada (`ballsSmoothed`) é reposicionada a
-partir dos eventos e vazaria o rótulo. A PFF marca algumas posições como estimadas, e as trocamos
-por ausentes no caso da bola, já que o tracking do alvo não estima.
+We use the raw PFF ball (`balls`). The smoothed version (`ballsSmoothed`) is repositioned from the
+events and would leak the label. PFF marks some positions as estimated; for the ball we treat them
+as missing, since the target tracking does not estimate.
 
-A PFF não ajudou. No modelo base, somar a PFF ao treino baixou o spellF1 na Metrica de 0,592 para 0,563, embora o macroF1 tenha subido de 0,793 para 0,812.
-A PFF tem menos posses por jogo que a Metrica (226 contra 347), o que sugere que as duas anotações
-contam posse de jeito diferente.
+PFF did not help. On the base model, adding PFF to training lowered spellF1 on Metrica from 0.592
+to 0.563, although macroF1 rose from 0.793 to 0.812. PFF has fewer possessions per game than
+Metrica (226 vs 347), which suggests the two annotations count possession differently.
 
-## 4. Regras de posse implementadas
+## 4. Possession rules implemented
 
-Seguimos o CHALLENGE.md. A posse só muda quando o outro time ganha controle; bola disputada ou
-solta fica com o último time. O classificador aprende isso dos rótulos, em que perda de bola e
-disputa não trocam a posse, e a duração mínima impede trocas mais curtas que 2 s.
+We follow CHALLENGE.md. Possession changes only when the other team gains control; a contested or
+loose ball stays with the last team. The classifier learns this from labels in which ball losses
+and challenges do not change possession, and the minimum duration prevents changes shorter than
+2 s.
 
-Bola morta é sempre D, sem dono, como pede o desafio.
+A dead ball is always D, with no owner, as the challenge asks.
 
-## 5. Tratamento de tracking ausente/ruidoso
+## 5. Handling missing and noisy tracking
 
-A bola some em 41% dos frames avaliados do alvo, a taxa publicada no DATA.md. Para que o treino e
-a validação vejam a mesma ausência, a bola dos jogos externos é apagada em lacunas aleatórias até
-essa taxa, contada só dentro dos tempos de jogo. A duração média das lacunas (2 s) é um chute. No
-treino, cada jogo entra com duas cópias degradadas com seeds diferentes; a avaliação usa sempre a
-mesma cópia. Degradar com lacunas no formato medido no alvo (seção 2) não mudou o resultado.
+The ball is missing in 41% of the evaluated frames of the target game, the rate published in
+DATA.md. So that training and validation see the same absence, the ball in the external games is
+removed in random gaps up to that rate, counted only within the halves. The mean gap length (2 s)
+is a guess. In training each game enters as two degraded copies with different seeds; evaluation
+always uses the same copy. Degrading with gaps shaped like those measured on the target (section 2)
+did not change the result.
 
-Depois da degradação, nos jogos externos e no alvo do mesmo jeito, a bola é interpolada em linha
-reta nas lacunas de até 1 s, entre a última e a próxima posição vistas. As features de distância e
-velocidade usam a bola interpolada; as de presença continuam olhando só a bola vista. Duas features
-dizem ao classificador onde ele está: o tamanho da lacuna e o tempo desde a última bola vista.
-Interpolar até 2 s foi um pouco pior que 1 s.
+After degradation, in the external games and in the target alike, the ball is linearly
+interpolated across gaps of up to 1 s, between the last and the next seen positions. The distance
+and speed features use the interpolated ball; the presence features still look only at the seen
+ball. Two features tell the classifier where it is: the gap length and the time since the ball was
+last seen. Interpolating up to 2 s was slightly worse than 1 s.
 
-Nas lacunas mais longas, as distâncias à bola ficam vazias e o classificador usa o que sobra,
-principalmente o movimento dos jogadores. Em bola morta os jogadores param, e isso continua visível
-no tracking mesmo quando a bola não está.
+In longer gaps the ball distances are empty and the classifier uses what is left, mainly player
+movement. When the ball is dead the players stop, and that stays visible in the tracking even when
+the ball is not.
 
-Na velocidade dos jogadores, saltos acima de 12 m/s são tratados como troca de identidade do
-tracklet e descartados. A velocidade de cada time é a média dos deslocamentos dos jogadores
-presentes em duas amostras seguidas, e não o deslocamento do centróide, que salta quando um
-tracklet aparece ou some.
+For player speed, jumps above 12 m/s are treated as tracklet identity switches and dropped. Each
+team's speed is the mean displacement of the players present in two consecutive samples, not the
+centroid displacement, which jumps when a tracklet appears or disappears.
 
-## 6. Limitações
+## 6. Limitations
 
-- Três jogos externos é pouco. O ruído do spellF1 é de cerca de ±0,04, maior que os ganhos das
-  últimas mudanças (seção 3).
-- Os rótulos da Metrica vêm de eventos, não do tracking corrigido que gera o gabarito oficial. As
-  fronteiras de bola morta são aproximadas, e metade das posses rotuladas dura menos de 4 s. Num
-  rótulo construído como o oficial (a DFL), o mesmo modelo treinado só na Metrica cai para cerca de
-  0,33 de spellF1. Por isso não esperamos que o placar no alvo fique perto do 0,62 da validação.
-- Nos jogos externos a bola quase só some em bola morta (91% a 99,8% dos frames D). A degradação
-  apaga a bola também com o jogo vivo, mas no treino a ausência continua mais comum em D do que
-  provavelmente é no alvo. O modelo vê a presença da bola como feature e pode ter aprendido parte desse
-  artefato.
-- No jogo da competição o modelo prevê 363 posses com 11,8 s de média e marca D em 32,4% dos
-  frames avaliados.
-- A Metrica também é outro provider. Ela é o alvo mais próximo que temos em formato, mas a DFL é a
-  fonte cujo rótulo mais se parece com o oficial.
-- O modelo é treinado de novo a cada execução. O CSV sai idêntico no Windows e no Linux x86_64,
-  com uma ou várias threads, desde que o ambiente seja o do `uv.lock` com Python 3.11. Não testamos
-  em ARM (Mac M).
+- Three external games is little. The spellF1 noise is about ±0.04, larger than the gains of the
+  latest changes (section 3).
+- Metrica labels come from events, not from the corrected tracking that produces the official
+  ground truth. Dead-ball boundaries are approximate, and half of the labelled possessions last
+  less than 4 s. On labels built like the official ones (DFL), the same model trained on Metrica
+  only drops to about 0.33 spellF1. We therefore do not expect the target score to be close to the
+  0.62 of validation.
+- In the external games the ball is missing almost only when it is dead (91% to 99.8% of D frames).
+  Degradation also removes the ball during live play, but in training absence is still more common
+  in D than it probably is in the target. The model sees ball presence as a feature and may have
+  learnt part of that artefact.
+- On the competition game the model predicts 363 possessions with a mean of 11.8 s and marks D in
+  32.4% of the evaluated frames.
+- Metrica is also a different provider. It is the closest we have to the target in format, but DFL
+  is the source whose labels most resemble the official ones.
+- The model is retrained on every run. The CSV comes out byte-identical on Windows and Linux x86_64,
+  with one or several threads, as long as the environment is the one in `uv.lock` with Python 3.11.
+  We have not tested ARM (Apple Silicon).
 
-## 7. Reprodução
+## 7. Reproduction
 
 ```bash
 git clone --recurse-submodules https://github.com/SALabUFMG/mtah27.git
 cd mtah27
-uv sync                                          # Python 3.11 e versões exatas do uv.lock
-# bundle de dados em ./data ou MTAH_DATA_DIR (ver data/README.md)
+uv sync                                          # Python 3.11 and the exact versions in uv.lock
+# data bundle in ./data or MTAH_DATA_DIR (see data/README.md)
 uv run python scripts/fetch_metrica_sample.py
 uv run python scripts/make_submission.py
 ```
 
-Os hiperparâmetros estão em `configs/c1_fitted.yaml` e as chaves do modelo (interpolação, DFL,
-lacunas medidas) em `configs/default.yaml`. O modelo é treinado nos jogos da Metrica dentro do
-`make_submission`. Para refazer as comparações pareadas: `scripts/eval_c1_variants.py`; por fonte de
-treino: `scripts/eval_c1_sources.py`.
+Hyperparameters are in `configs/c1_fitted.yaml` and the model switches (interpolation, DFL,
+measured gaps) in `configs/default.yaml`. The model is trained on the Metrica games inside
+`make_submission`. To redo the paired comparisons: `scripts/eval_c1_variants.py`; by training
+source: `scripts/eval_c1_sources.py`.
 
-SHA-256 esperado do CSV (tag `fase1`):
+Expected SHA-256 of the CSV (tag `fase1`):
 `327c282a03fb566381bff3f14cb5d55939f71aa718ed921b42227a6f5199ced8`
