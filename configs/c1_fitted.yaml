@@ -1,6 +1,11 @@
-# Gerado por scripts/calibrate_c1.py. Não edite à mão.
-cv_macro_f1: 0.7934
-cv_spell_f1: 0.5922
+# Gerado por scripts/calibrate_c1.py (C1 de 4/nov) e corrigido à mão em 17/nov só nos metadados,
+# depois do merge das features de ataque e da interpolação (PR #3). Os hiperparâmetros (hz, window_s,
+# n_aug, min_dur_s, emission_weight) são os da submissão; cv_* e features não são lidos pelo código.
+# cv_*: média de 15 pares jogo x semente no ponto fixo 2/4/1 (eval_c1_variants.py), LOGO nos 3 jogos
+# da Metrica. Não é o máximo da grade, ao contrário do 0,5922 do C1 original.
+# Não rode calibrate_c1.py sem querer mudar a submissão: ele reescreve este arquivo com o máximo da grade.
+cv_macro_f1: 0.817
+cv_spell_f1: 0.6214
 emission_weight: 1.0
 extra_train: none
 features:
@@ -37,6 +42,13 @@ features:
 - speed_med
 - speed_med_norm
 - slow_frac
+- home_cx_att
+- away_cx_att
+- home_cvx_att
+- away_cvx_att
+- ball_x_att
+- ball_gap_s
+- ball_since_s
 hz: 5
 min_dur_s:
   A: 2
