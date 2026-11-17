@@ -1,7 +1,7 @@
 # Notebooks
 
-Exploração e diagnóstico. Código que vai para a submissão mora em `src/mtah27/`, não aqui.
+Exploration and diagnostics. Code that goes into the submission lives in `src/mtah27/`, not here.
 
-- **Nome:** `<iniciais>_<NN>_<assunto>.ipynb` — ex.: `jl_01_eda_tracking.ipynb`. Evita conflito de merge entre membros.
-- **Sem outputs no git:** o hook `nbstripout` (pre-commit) limpa automaticamente. Outputs contêm dados (tabelas, plots do tracking) e o repo será público.
-- Importe o pacote: `from mtah27 import paths`.
+- **Name:** `<initials>_<NN>_<topic>.ipynb`, e.g. `jl_01_eda_tracking.ipynb`. Avoids merge conflicts between members.
+- **No outputs in git:** the `nbstripout` hook (pre-commit) strips them automatically. Outputs contain data (tables, tracking plots) and the repo is public.
+- Import the package: `from mtah27 import paths`.

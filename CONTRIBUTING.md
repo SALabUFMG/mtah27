@@ -1,34 +1,34 @@
-# Como trabalhamos
+# How we work
 
-## Regras inegociáveis (vêm dos termos da competição)
+## Non-negotiable rules (from the competition terms)
 
-Resumo completo da competição em [RULES.md](RULES.md). Se for usar agentes LLM (Claude Code, Codex, Copilot…), eles devem seguir [CLAUDE.md](CLAUDE.md).
+Full rules in [docs/official/RULES.md](docs/official/RULES.md). LLM agents (Claude Code, Codex, Copilot…) must follow [CLAUDE.md](CLAUDE.md).
 
-1. **Dados nunca vão para o git.** Nem vídeo, nem tracking, nem parquet derivado, nem CSV de submissão. O `.gitignore` e o pre-commit protegem, mas a responsabilidade é de cada um.
-2. **Dados nunca vão para LLMs na nuvem** (ChatGPT, Claude, Gemini, Copilot Chat…) — nem extratos, nem prints de tabela/plot do tracking. Pode pedir ajuda com código; cole mensagens de erro e scores, não dados.
-3. **Nenhum label feito à mão** no jogo da competição, nem para treinar/validar. Rótulos manuais em **outros** jogos são permitidos (documentar).
-4. **Nenhum parâmetro amarrado a frames específicos** do jogo.
-5. **Os 5 min públicos não são conjunto de validação.** Só checagem de sanidade.
-6. **Notebooks sem output** no git (o `nbstripout` faz isso no commit).
+1. **Data never goes into git.** No video, no tracking, no derived parquet, no submission CSV. `.gitignore` and pre-commit protect against it, but everyone is responsible.
+2. **Data never goes into cloud-hosted LLMs** (ChatGPT, Claude, Gemini, Copilot Chat…), not even extracts or screenshots of tracking tables or plots. Asking for help with code is fine; paste error messages and scores, not data.
+3. **No hand labels** on the competition game, not even to train or validate. Hand labels on **other** games are allowed (and must be documented).
+4. **No parameter tied to specific frames** of the game.
+5. **The 5 public minutes are not a validation set.** Sanity checks only.
+6. **Notebooks without outputs** in git (`nbstripout` does it on commit).
 
-## Fluxo git
+## Git workflow
 
-- `main` sempre gera uma submissão válida (`make submission && make validate`).
-- Trabalho em branches: `<iniciais>/<assunto>` — ex.: `jl/deadball-features`.
-- Pull request para `main`, com pelo menos 1 revisão de outro membro.
-- Antes de abrir o PR: `make test` e `make lint`.
-- Mensagens de commit no imperativo, em português: "Adiciona detector de bola morta".
+- `main` always produces a valid submission (`make submission && make validate`).
+- Work on branches: `<initials>/<topic>`, e.g. `jl/deadball-features`.
+- Pull request to `main`, with at least 1 review from another member.
+- Before opening the PR: `make test` and `make lint`.
+- Commit messages in the imperative, in Portuguese: "Adiciona detector de bola morta".
 
-## Experimentos
+## Experiments
 
-Toda execução que alguém usaria para tomar decisão vira uma linha em `experiments/log.csv`, rodada a partir de um commit limpo (sem alterações pendentes).
+Every run someone would use to make a decision becomes a line in `experiments/log.csv`, run from a clean commit (no pending changes).
 
-## Dependências
+## Dependencies
 
-`uv add <pacote>` (ou `uv add --group dev <pacote>`) e commitar `pyproject.toml` + `uv.lock` juntos. Nunca `pip install` solto.
+`uv add <package>` (or `uv add --group dev <package>`) and commit `pyproject.toml` + `uv.lock` together. Never a loose `pip install`.
 
-## Antes de tornar o repo público
+## Before making the repo public
 
-- [ ] `git log --all --stat` sem nada de `data/`, `.mp4`, `.parquet`, `.csv` grande
-- [ ] notebooks sem outputs
-- [ ] clone limpo + `uv sync` + `make submission` reproduz o mesmo SHA-256
+- [ ] `git log --all --stat` shows nothing from `data/`, `.mp4`, `.parquet`, large `.csv`
+- [ ] notebooks without outputs
+- [ ] clean clone + `uv sync` + `make submission` reproduces the same SHA-256
