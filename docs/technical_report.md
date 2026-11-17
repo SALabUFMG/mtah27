@@ -49,12 +49,8 @@ features tell the classifier how long the gap is and how long ago the ball was l
 (section 5). In paired comparisons this won 13 of 15 game × seed pairs. The submitted model scores
 0.621 spellF1 and 0.817 macroF1 at the fixed decoding point.
 
-Two other routes were tried and left out. One was a self-supervised encoder: a transformer
-pre-trained from scratch by JEPA-style masked prediction on windows of tracking (the Metrica and
-PFF games and, without labels, the target game), with a classification head trained on the external
-labels. Its best spellF1 in the same validation was 0.506, below the boosting emission, so we
-dropped it. That code is in the branch `jl/c2-fcjepa` and is not part of the submission. The other
-route was more training games from other providers, DFL and PFF, covered in section 3.
+We also tried more training games from other providers, DFL and PFF. Neither is in the submission,
+and section 3 covers both.
 
 ### The submitted model in detail
 
