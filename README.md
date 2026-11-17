@@ -11,9 +11,10 @@ resumo em português em [RULES.md](RULES.md).
 
 ---
 
-## Instalação local (membros do time)
+## Instalação local
 
 Passo a passo para deixar o projeto rodando na sua máquina. Leva uns 5 minutos.
+Para só reproduzir a submissão, veja [Reproduzir a submissão](#reproduzir-a-submissão).
 
 ### 1. Pré-requisitos
 
@@ -29,7 +30,6 @@ Passo a passo para deixar o projeto rodando na sua máquina. Leva uns 5 minutos.
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
   Feche e reabra o terminal depois e confira com `uv --version`.
-- **Acesso ao repo** `SALabUFMG/mtah27` (privado) — peça para alguém do time te adicionar.
 
 ### 2. Clonar (com o submódulo oficial)
 
@@ -51,13 +51,19 @@ uv sync                     # cria .venv com as versões exatas do uv.lock
 uv run pre-commit install   # ganchos de commit: limpa outputs de notebooks, bloqueia arquivos grandes
 ```
 
-O `pre-commit install` é **obrigatório para cada membro**: é ele que impede que outputs de
+Para quem vai contribuir, o `pre-commit install` é **obrigatório**: é ele que impede que outputs de
 notebook (que contêm dados) entrem no git.
 
 ### 4. Colocar os dados
 
 Descompacte o bundle da competição em `data/` (estrutura em [data/README.md](data/README.md)),
-ou guarde em outro lugar e aponte a variável `MTAH_DATA_DIR` para lá:
+ou guarde em outro lugar e aponte a variável `MTAH_DATA_DIR` para lá. Depois baixe os 3 jogos
+públicos da Metrica, usados no treino (o download confere o SHA-256 de cada arquivo):
+
+```bash
+uv run python scripts/fetch_metrica_sample.py
+```
+
 
 ```powershell
 $env:MTAH_DATA_DIR = "D:\mtah-data"          # Windows (só na sessão atual)
@@ -97,17 +103,29 @@ Se os quatro rodarem sem erro, você está pronto. Com os dados no lugar, rode t
 
 ## Reproduzir a submissão
 
-Requisitos: [uv](https://docs.astral.sh/uv/) e git. O uv instala o Python 3.11 sozinho.
+Requisitos: [uv](https://docs.astral.sh/uv/) e git. O uv instala o **Python 3.11** (fixado em
+`.python-version`) e as versões exatas do `uv.lock`. Rode tudo via `uv run`: com outra versão do
+Python (por exemplo 3.12) as dependências resolvem para outras versões e o CSV pode sair diferente.
 
 ```bash
-git clone --recurse-submodules <url-deste-repo>
+git clone --recurse-submodules https://github.com/SALabUFMG/mtah27.git
 cd mtah27
-uv sync                                   # ambiente idêntico ao uv.lock
-# coloque o bundle de dados em ./data  (ou defina MTAH_DATA_DIR) — ver data/README.md
-uv run python scripts/make_submission.py  # -> outputs/submissions/<team>.csv
+uv sync                                          # ambiente idêntico ao uv.lock
+# coloque o bundle de dados em ./data (ou defina MTAH_DATA_DIR); ver data/README.md
+uv run python scripts/fetch_metrica_sample.py    # 3 jogos públicos da Metrica (treino do modelo)
+uv run python scripts/make_submission.py         # treina o C1 (~2 min) e gera outputs/submissions/SALab_UFMG.csv
+uv run python scripts/validate.py outputs/submissions/SALab_UFMG.csv
 ```
 
-O script imprime o SHA-256 do CSV; ele deve ser idêntico em qualquer máquina.
+O `make_submission` imprime o SHA-256 do CSV. O da submissão da Fase 1 (tag `fase1`) é
+
+```
+327c282a03fb566381bff3f14cb5d55939f71aa718ed921b42227a6f5199ced8
+```
+
+conferido em Windows, Linux x86_64 e macOS com Apple Silicon (arm64). A seed é fixa e o caminho da submissão não usa cache nem
+paralelismo não determinístico. Os dados da DFL e da PFF só aparecem nos experimentos
+(`scripts/fetch_dfl.py`, `scripts/extract_pff.py`) e não são necessários para reproduzir.
 
 ## Comandos do dia a dia
 
@@ -152,6 +170,10 @@ git add external/mtah-official docs/official && git commit -m "Atualiza repo ofi
 ```
 
 ## Time
+
+SALab UFMG: João Lucas Lage Gonçalves, Ricardo Furbino, Gabriel Valadão Meira.
+
+Documentação:
 
 - [RULES.md](RULES.md): resumo das regras, métrica, entregáveis e checklist de submissão.
 - [docs/official/](docs/official/README.md): documentação oficial completa (DATA, EVALUATION, RULES, FAQ…).

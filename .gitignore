@@ -46,3 +46,6 @@ desktop.ini
 
 # -- agentes LLM: config local de cada pessoa ---------------------------------
 .claude/settings.local.json
+
+# -- notas locais de tarefas (não vão a público) --------------------------------
+TASKS.md

@@ -34,11 +34,11 @@ c1:
   window_s: 2.0              # janela (média móvel centrada) das features
   n_aug: 2                   # cópias degradadas por jogo no treino (seeds degrade.seed + 0..n_aug-1)
   gaps_fitted: null          # ball_gaps_fitted.yaml (scripts/measure_ball_gaps.py): lacunas de bola como as do alvo
-                             # no treino, no lugar das uniformes de c0.degrade. null = submissão atual
+                             # no treino, no lugar das uniformes de c0.degrade. null na submissão (sem ganho)
   fill_gap_s: 1.0            # > 0: interpola a bola nas lacunas de até fill_gap_s e soma as features de lacuna
-                             # (features.GAP_FEATURES). 0 = submissão atual
+                             # (features.GAP_FEATURES). 1.0 na submissão; 0 = C1 original
   train_dfl: false           # true: soma ao treino os 7 jogos públicos da DFL (scripts/fetch_dfl.py), que têm
-                             # posse e bola morta por frame no próprio tracking. false = submissão atual
+                             # posse e bola morta por frame no próprio tracking. false na submissão
   grid:                      # varrida só na decodificação, sem retreinar
     min_dur_ha_s: [1, 2, 3, 4, 6]   # duração mínima de H e A
     min_dur_d_s: [2, 4, 8]          # duração mínima de D
