@@ -5,7 +5,7 @@
 
 ## 1. Abordagem
 
-A submissão é o caminho C1: um HMM de três estados (H, A, D) decodificado por Viterbi com duração
+O modelo é um HMM de três estados (H, A, D) decodificado por Viterbi com duração
 mínima por estado, em que a emissão vem de um classificador de gradient boosting. Cada tempo do jogo
 é decodificado separadamente, e os frames fora dos dois tempos recebem `X`.
 
@@ -37,17 +37,10 @@ limites dos tempos vêm do helper oficial `games.half_video_blocks`; nada está 
 
 Um `HistGradientBoostingClassifier` do scikit-learn (300 iterações, taxa 0,05, 31 folhas, seed 0)
 estima P(estado | features). O HMM precisa de P(features | estado), que pela regra de Bayes é
-proporcional a P(estado | features) / P(estado). Essa razão entra como emissão no mesmo Viterbi do
-C0, com a transição contada nos rótulos de treino e duração mínima de 2 s para H e A e de 4 s para
+proporcional a P(estado | features) / P(estado). Essa razão entra como emissão no Viterbi, com a
+transição contada nos rótulos de treino e duração mínima de 2 s para H e A e de 4 s para
 D. A duração mínima segura a fragmentação que o spellF1 pune: uma posse quebrada em três pedaços
 conta como erro.
-
-O C1 veio de uma análise de erro do C0 (`scripts/error_analysis_c0.py`), o HMM categórico que foi
-nossa primeira submissão. O C0 via só o time do jogador mais próximo da bola e uma faixa de
-velocidade dos jogadores. Na validação, quase metade das posses verdadeiras dura menos de 4 s, e o
-C0 casava só 11% delas, porque a sua duração mínima era de 4 s. A acurácia por frame caía de 0,81
-com bola visível para 0,66 sem bola. Uma emissão mais informativa deixa usar durações mínimas
-menores sem fragmentar.
 
 ## 2. Dados utilizados
 
@@ -100,25 +93,23 @@ oficial, girando os três. Usamos dois protocolos, e os números de um não se c
 
 | variante | protocolo | spellF1 | macroF1 |
 | --- | --- | --- | --- |
-| C0, HMM categórico | grade | 0,495 | 0,748 |
-| C1 original (33 features) | grade | 0,592 | 0,793 |
-| C1 + lado de ataque | grade | 0,618 | 0,799 |
-| **C1 + ataque + interpolação, 2/4/1 (submissão)** | pareado, média | **0,621** | **0,817** |
+| base (33 features) | grade | 0,592 | 0,793 |
+| base + lado de ataque | grade | 0,618 | 0,799 |
+| **base + ataque + interpolação, 2/4/1 (submissão)** | pareado, média | **0,621** | **0,817** |
 
 O que foi medido de forma pareada:
 
 | mudança | ΔspellF1 | pares em que ganha | decisão |
 | --- | --- | --- | --- |
-| interpolação de 1 s sobre o C1 original | +0,019 | 14/15 | adotada |
-| interpolação de 1 s sobre o C1 + ataque | +0,013 | 13/15 | adotada |
+| interpolação de 1 s sobre o modelo base | +0,019 | 14/15 | adotada |
+| interpolação de 1 s sobre base + ataque | +0,013 | 13/15 | adotada |
 | lacunas medidas no alvo no lugar das uniformes | +0,003 | 9–11/15 | não adotada |
 | melhor ponto da grade (1/4/1) contra 2/4/1 | +0,005 | 10/15 | não adotada (máximo de 30 pontos) |
 | features em janelas de 1 + 2 + 5 s | −0,004 | 6/15 | não adotada |
 
-O ruído entre jogos é de cerca de ±0,04 no spellF1. O ganho do C1 sobre o C0 (0,10) passa disso. Os
-ganhos da interpolação e das features de ataque são consistentes nos pares, mas menores que esse
+O ruído entre jogos é de cerca de ±0,04 no spellF1. Os ganhos da interpolação e das features de ataque são consistentes nos pares, mas menores que esse
 ruído; os pares repetem os mesmos três jogos com sementes diferentes, então não são independentes.
-O LightGBM no lugar do scikit-learn deu 0,589 no C1 original, dentro do ruído, e ficamos com o
+O LightGBM no lugar do scikit-learn deu 0,589 no modelo base, dentro do ruído, e ficamos com o
 scikit-learn para ter uma dependência a menos.
 
 ### Dados públicos da DFL (Bundesliga 2022/23)
@@ -160,9 +151,7 @@ A bola da PFF usada é a bruta (`balls`). A versão suavizada (`ballsSmoothed`) 
 partir dos eventos e vazaria o rótulo. A PFF marca algumas posições como estimadas, e as trocamos
 por ausentes no caso da bola, já que o tracking do alvo não estima.
 
-A PFF não ajudou em nenhum dos dois modelos. No C0, ajustar na PFF e avaliar na Metrica deu
-spellF1 entre 0,417 e 0,452 (`scripts/cross_eval_c0.py`). No C1 original, somar a PFF ao treino
-baixou o spellF1 na Metrica de 0,592 para 0,563, embora o macroF1 tenha subido de 0,793 para 0,812.
+A PFF não ajudou. No modelo base, somar a PFF ao treino baixou o spellF1 na Metrica de 0,592 para 0,563, embora o macroF1 tenha subido de 0,793 para 0,812.
 A PFF tem menos posses por jogo que a Metrica (226 contra 347), o que sugere que as duas anotações
 contam posse de jeito diferente.
 
@@ -197,9 +186,6 @@ tracklet e descartados. A velocidade de cada time é a média dos deslocamentos 
 presentes em duas amostras seguidas, e não o deslocamento do centróide, que salta quando um
 tracklet aparece ou some.
 
-No C0 também testamos aprender a parte de bola morta por EM no próprio jogo, sem rótulo. O EM
-sempre convergiu para "bola ausente = D" e foi descartado.
-
 ## 6. Limitações
 
 - Três jogos externos é pouco. O ruído do spellF1 é de cerca de ±0,04, maior que os ganhos das
@@ -210,7 +196,7 @@ sempre convergiu para "bola ausente = D" e foi descartado.
   0,33 de spellF1. Por isso não esperamos que o placar no alvo fique perto do 0,62 da validação.
 - Nos jogos externos a bola quase só some em bola morta (91% a 99,8% dos frames D). A degradação
   apaga a bola também com o jogo vivo, mas no treino a ausência continua mais comum em D do que
-  provavelmente é no alvo. O C1 vê a presença da bola como feature e pode ter aprendido parte desse
+  provavelmente é no alvo. O modelo vê a presença da bola como feature e pode ter aprendido parte desse
   artefato.
 - No jogo da competição o modelo prevê 363 posses com 11,8 s de média e marca D em 32,4% dos
   frames avaliados.
@@ -219,8 +205,6 @@ sempre convergiu para "bola ausente = D" e foi descartado.
 - O modelo é treinado de novo a cada execução. O CSV sai idêntico no Windows e no Linux x86_64,
   com uma ou várias threads, desde que o ambiente seja o do `uv.lock` com Python 3.11. Não testamos
   em ARM (Mac M).
-
-**[A DEFINIR: um parágrafo sobre o C2 (FC-JEPA), resultado negativo, sem código no repositório.]**
 
 ## 7. Reprodução
 
@@ -233,11 +217,10 @@ uv run python scripts/fetch_metrica_sample.py
 uv run python scripts/make_submission.py
 ```
 
-Os hiperparâmetros estão em `configs/c1_fitted.yaml` e as chaves do C1 (interpolação, DFL, lacunas
-medidas) em `configs/default.yaml`. O modelo é treinado nos jogos da Metrica dentro do
+Os hiperparâmetros estão em `configs/c1_fitted.yaml` e as chaves do modelo (interpolação, DFL,
+lacunas medidas) em `configs/default.yaml`. O modelo é treinado nos jogos da Metrica dentro do
 `make_submission`. Para refazer as comparações pareadas: `scripts/eval_c1_variants.py`; por fonte de
-treino: `scripts/eval_c1_sources.py`. O C0 continua disponível com `model: c0` em
-`configs/default.yaml`.
+treino: `scripts/eval_c1_sources.py`.
 
 SHA-256 esperado do CSV (tag `fase1`):
 `327c282a03fb566381bff3f14cb5d55939f71aa718ed921b42227a6f5199ced8`
